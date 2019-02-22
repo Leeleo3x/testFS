@@ -9,6 +9,7 @@
 #include "spdk.h"
 
 static int cmd_help(struct super_block *, struct context *c);
+static int cmd_mkfs(struct super_block *, struct context *c);
 static int cmd_quit(struct super_block *, struct context *c);
 static bool can_quit = false;
 
@@ -24,6 +25,11 @@ static struct {
         "?",
         cmd_help,
         1,
+    },
+    {
+        "mkfs",
+        cmd_mkfs,
+        2,
     },
     {
         "cd",
@@ -104,6 +110,24 @@ static int cmd_help(struct super_block *sb, struct context *c) {
   for (; cmdtable[i].name; i++) {
     printf("%s\n", cmdtable[i].name);
   }
+  return 0;
+}
+
+static int cmd_mkfs(struct super_block *sb, struct context *c) {
+  int ret;
+  *sb = *testfs_make_super_block(c->cmd[1]);
+  testfs_make_inode_freemap(sb);
+  testfs_make_block_freemap(sb);
+  testfs_make_csum_table(sb);
+  testfs_make_inode_blocks(sb);
+  testfs_close_super_block(sb);
+
+  ret = testfs_init_super_block(c->cmd[1], 0, &sb);
+  if (ret) {
+    EXIT("testfs_init_super_block");
+  }
+  testfs_make_root_dir(sb);
+  testfs_close_super_block(sb);
   return 0;
 }
 

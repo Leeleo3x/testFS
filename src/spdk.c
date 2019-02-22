@@ -80,14 +80,8 @@ static void complete(void *arg, const struct spdk_nvme_cpl *completion) {
 
 void read_blocks(struct super_block *sb, char *blocks, int start,
                         int nr) {
-  printf("READ BLOCKS: %d %d\n", start, nr);
   struct ns_entry *entry= g_namespaces;
   struct hello_world_sequence sequence;
-  entry->qpair = spdk_nvme_ctrlr_alloc_io_qpair(entry->ctrlr, NULL, 0);
-  if (entry->qpair == NULL) {
-    printf("ERROR: spdk_nvme_ctrlr_alloc_io_qpair() failed\n");
-    return;
-  }
 
   sequence.buf = spdk_zmalloc(nr * BLOCK_SIZE, 0, NULL, SPDK_ENV_SOCKET_ID_ANY,
                                SPDK_MALLOC_DMA);
@@ -111,7 +105,6 @@ void read_blocks(struct super_block *sb, char *blocks, int start,
 
 void write_blocks(struct super_block *sb, char *blocks, int start,
                          int nr) {
-  printf("WRITE BLOCKS: %d %d\n", start, nr);
   struct ns_entry *entry = g_namespaces;
   struct hello_world_sequence sequence;
   sequence.using_cmb_io = 1;
@@ -151,7 +144,6 @@ void write_blocks(struct super_block *sb, char *blocks, int start,
   } else {
     spdk_free(sequence.buf);
   }
-  // spdk_nvme_ctrlr_free_io_qpair(entry->qpair);
 }
 
 void zero_blocks(struct super_block *sb, int start, int nr) {
