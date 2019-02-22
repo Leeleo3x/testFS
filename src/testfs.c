@@ -116,9 +116,6 @@ static int cmd_help(struct super_block *sb, struct context *c) {
 static int cmd_mkfs(struct super_block *sb, struct context *c) {
   int ret;
   struct device *dev = sb->dev;
-  if (sb->dev == NULL) {
-    printf("???\n");
-  }
   struct super_block *sb_tmp = testfs_make_super_block(sb->dev);
   testfs_make_inode_freemap(sb_tmp);
   testfs_make_block_freemap(sb_tmp);
@@ -242,9 +239,13 @@ static struct args *parse_arguments(int argc, char *const argv[]) {
     }
   }
   // optind - index of next variable to be processed in argv.
-  if (argc - optind != 1) usage(argv[0]);
+  if (argc - optind == 1)  {
+    args.disk = argv[optind];
+  }
+  else {
+    args.disk = "/tmp/file";
+  }
 
-  args.disk = argv[optind];
   return &args;
 }
 
