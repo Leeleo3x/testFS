@@ -1,5 +1,6 @@
 #include "block.h"
 #include "testfs.h"
+#include "device.h"
 
 static char zero[BLOCK_SIZE] = {0};
 
@@ -10,16 +11,16 @@ static char zero[BLOCK_SIZE] = {0};
 void write_blocks(struct super_block *sb, char *blocks, int start, int nr) {
   long pos;
 
-  if ((pos = ftell(sb->dev)) < 0) {
+  if ((pos = ftell(sb->dev->raw)) < 0) {
     EXIT("ftell");
   }
-  if (fseek(sb->dev, start * BLOCK_SIZE, SEEK_SET) < 0) {
+  if (fseek(sb->dev->raw, start * BLOCK_SIZE, SEEK_SET) < 0) {
     EXIT("fseek");
   }
-  if (fwrite(blocks, BLOCK_SIZE, nr, sb->dev) != nr) {
+  if (fwrite(blocks, BLOCK_SIZE, nr, sb->dev->raw) != nr) {
     EXIT("fwrite");
   }
-  if (fseek(sb->dev, pos, SEEK_SET) < 0) {
+  if (fseek(sb->dev->raw, pos, SEEK_SET) < 0) {
     EXIT("fseek");
   }
 }
@@ -41,16 +42,16 @@ void zero_blocks(struct super_block *sb, int start, int nr) {
 void read_blocks(struct super_block *sb, char *blocks, int start, int nr) {
   long pos;
 
-  if ((pos = ftell(sb->dev)) < 0) {
+  if ((pos = ftell(sb->dev->raw)) < 0) {
     EXIT("ftell");
   }
-  if (fseek(sb->dev, start * BLOCK_SIZE, SEEK_SET) < 0) {
+  if (fseek(sb->dev->raw, start * BLOCK_SIZE, SEEK_SET) < 0) {
     EXIT("fseek");
   }
-  if (fread(blocks, BLOCK_SIZE, nr, sb->dev) != nr) {
+  if (fread(blocks, BLOCK_SIZE, nr, sb->dev->raw) != nr) {
     EXIT("freed");
   }
-  if (fseek(sb->dev, pos, SEEK_SET) < 0) {
+  if (fseek(sb->dev->raw, pos, SEEK_SET) < 0) {
     EXIT("fseek");
   }
 }

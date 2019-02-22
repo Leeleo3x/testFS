@@ -1,24 +1,12 @@
-#include "spdk/stdinc.h"
-
 #include "spdk/env.h"
 #include "spdk/nvme.h"
 
-#include "block.h"
-#include "testfs.h"
-
-static char zero[BLOCK_SIZE] = {0};
+#include "device.h"
 
 struct ctrlr_entry {
   struct spdk_nvme_ctrlr *ctrlr;
   struct ctrlr_entry *next;
   char name[1024];
-};
-
-struct ns_entry {
-  struct spdk_nvme_ctrlr *ctrlr;
-  struct spdk_nvme_ns *ns;
-  struct ns_entry *next;
-  struct spdk_nvme_qpair *qpair;
 };
 
 static struct ctrlr_entry *g_controllers = NULL;
@@ -63,94 +51,6 @@ static void register_ns(struct spdk_nvme_ctrlr *ctrlr,
   if (entry->qpair == NULL) {
     printf("ERROR: spdk_nvme_ctrlr_alloc_io_qpair() failed\n");
     return;
-  }
-}
-
-struct hello_world_sequence {
-  struct ns_entry *ns_entry;
-  char *buf;
-  unsigned using_cmb_io;
-  int is_completed;
-};
-
-static void complete(void *arg, const struct spdk_nvme_cpl *completion) {
-  struct hello_world_sequence *sequence = arg;
-  sequence->is_completed = 1;
-}
-
-void read_blocks(struct super_block *sb, char *blocks, int start,
-                        int nr) {
-  struct ns_entry *entry= g_namespaces;
-  struct hello_world_sequence sequence;
-
-  sequence.buf = spdk_zmalloc(nr * BLOCK_SIZE, 0, NULL, SPDK_ENV_SOCKET_ID_ANY,
-                               SPDK_MALLOC_DMA);
-  int rc = spdk_nvme_ns_cmd_read(entry->ns, entry->qpair, sequence.buf,
-                                 start, /* LBA start */
-                                 nr,    /* number of LBAs */
-                                 complete, &sequence, 0);
-  if (rc != 0) {
-    fprintf(stderr, "starting read I/O failed\n");
-    exit(1);
-  }
-  sequence.is_completed = 0;
-  sequence.ns_entry = entry;
-  while (!sequence.is_completed) {
-    spdk_nvme_qpair_process_completions(entry->qpair, 0);
-  }
-  memcpy(blocks, sequence.buf, nr * BLOCK_SIZE);
-  spdk_free(sequence.buf);
-  // spdk_nvme_ctrlr_free_io_qpair(entry->qpair);
-}
-
-void write_blocks(struct super_block *sb, char *blocks, int start,
-                         int nr) {
-  struct ns_entry *entry = g_namespaces;
-  struct hello_world_sequence sequence;
-  sequence.using_cmb_io = 1;
-  sequence.buf =
-      spdk_nvme_ctrlr_alloc_cmb_io_buffer(entry->ctrlr, nr * BLOCK_SIZE);
-  if (sequence.buf == NULL) {
-    sequence.using_cmb_io = 0;
-    sequence.buf = spdk_zmalloc(nr * BLOCK_SIZE, 0, NULL,
-                                SPDK_ENV_SOCKET_ID_ANY, SPDK_MALLOC_DMA);
-  }
-  if (sequence.buf == NULL) {
-    printf("ERROR: write buffer allocation failed\n");
-    return;
-  }
-  if (sequence.using_cmb_io) {
-    printf("INFO: using controller memory buffer for IO\n");
-  } else {
-    printf("INFO: using host memory buffer for IO\n");
-  }
-  sequence.is_completed = 0;
-  sequence.ns_entry = entry;
-
-  memcpy(sequence.buf, blocks, nr * BLOCK_SIZE);
-  int rc = spdk_nvme_ns_cmd_write(entry->ns, entry->qpair, sequence.buf,
-                                  start, /* LBA start */
-                                  nr,    /* number of LBAs */
-                                  complete, &sequence, 0);
-  if (rc != 0) {
-    fprintf(stderr, "starting write I/O failed\n");
-    exit(1);
-  }
-  while (!sequence.is_completed) {
-    spdk_nvme_qpair_process_completions(entry->qpair, 0);
-  }
-  if (sequence.using_cmb_io) {
-    spdk_nvme_ctrlr_free_cmb_io_buffer(entry->ctrlr, sequence.buf, nr * BLOCK_SIZE);
-  } else {
-    spdk_free(sequence.buf);
-  }
-}
-
-void zero_blocks(struct super_block *sb, int start, int nr) {
-  int i;
-
-  for (i = 0; i < nr; i++) {
-    write_blocks(sb, zero, start + i, 1);
   }
 }
 
@@ -222,7 +122,7 @@ static void cleanup(void) {
   }
 }
 
-int spdk_init() {
+struct device *dev_init(const char *f) {
   int rc;
   struct spdk_env_opts opts;
 
@@ -237,7 +137,7 @@ int spdk_init() {
   opts.shm_id = 0;
   if (spdk_env_init(&opts) < 0) {
     fprintf(stderr, "Unable to initialize SPDK env\n");
-    return 1;
+    return NULL;
   }
 
   printf("Initializing NVMe Controllers\n");
@@ -253,15 +153,26 @@ int spdk_init() {
   if (rc != 0) {
     fprintf(stderr, "spdk_nvme_probe() failed\n");
     cleanup();
-    return 1;
+    return NULL;
   }
 
   if (g_controllers == NULL) {
     fprintf(stderr, "no NVMe controllers found\n");
     cleanup();
-    return 1;
+    return NULL;
   }
 
   printf("Initialization complete.\n");
-  return 0;
+
+  struct device *dev = malloc(sizeof(struct device));
+  dev->raw = g_namespaces;
+  return dev;
+}
+
+void dflush(struct device *dev) {
+
+}
+
+void dclose(struct device *dev) {
+
 }

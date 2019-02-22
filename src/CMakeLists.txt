@@ -7,28 +7,29 @@ link_directories(${SPDK_DIR}/isa-l/.libs)
 
 add_library(testFSLib
   bitmap.c
-  block.c
+  block_file.c
   csum.c
   dir.c
   file.c
+  device_file.c
   inode.c
-  mktestfs.c
   super.c
   tx.c
 )
+set_target_properties(testFSLib PROPERTIES COMPILE_DEFINITIONS "FILE_DEVICE=1")
 
 add_library(testFSSPDKLib
   bitmap.c
-  spdk.c
+  device_nvme.c
+  block_nvme.c
   csum.c
   dir.c
   file.c
   inode.c
-  mktestfs.c
   super.c
   tx.c
 )
-
+add_dependencies(testFSSPDKLib LibSPDK)
 target_link_libraries(testFSSPDKLib
                       -Wl,--whole-archive
                       ${SPDK_LIBS}
@@ -44,19 +45,14 @@ target_link_libraries(testFSSPDKLib
                       dl
                       )
 
-add_dependencies(testFSSPDKLib LibSPDK)
-
-add_library(testFSSPDK
-  spdk.c
-)
 
 add_executable(testFSExe
   testfs.c
 )
+set_target_properties(testFSExe PROPERTIES COMPILE_DEFINITIONS "FILE_DEVICE=1")
+target_link_libraries(testFSExe testFSLib)
 
 add_executable(testFSSPDKExe
-  testfs_spdk.c
+  testfs.c
 )
-
-target_link_libraries(testFSExe testFSLib)
 target_link_libraries(testFSSPDKExe testFSSPDKLib)

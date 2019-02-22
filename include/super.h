@@ -1,8 +1,8 @@
 #ifndef _SUPER_H
 #define _SUPER_H
 
-#include <stdio.h>
 #include "tx.h"
+#include "device.h"
 
 struct dsuper_block {
   int inode_freemap_start;
@@ -15,7 +15,7 @@ struct dsuper_block {
 
 struct super_block {
   struct dsuper_block sb;
-  FILE *dev;
+  struct device *dev;
   struct bitmap *inode_freemap;
   struct bitmap *block_freemap;
   tx_type tx_in_progress;
@@ -24,16 +24,17 @@ struct super_block {
   int *csum_table;
 };
 
-struct super_block *testfs_make_super_block(char *file);
+struct super_block *testfs_make_super_block(struct device *dev);
 void testfs_make_inode_freemap(struct super_block *sb);
 void testfs_make_block_freemap(struct super_block *sb);
 void testfs_make_csum_table(struct super_block *sb);
 void testfs_make_inode_blocks(struct super_block *sb);
 
-int testfs_init_super_block(const char *file, int corrupt,
+int testfs_init_super_block(struct device *dev, int corrupt,
                             struct super_block **sbp);
 void testfs_write_super_block(struct super_block *sb);
 void testfs_close_super_block(struct super_block *sb);
+void testfs_flush_super_block(struct super_block *sb);
 
 int testfs_get_inode_freemap(struct super_block *sb);
 void testfs_put_inode_freemap(struct super_block *sb, int inode_nr);

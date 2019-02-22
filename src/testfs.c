@@ -6,8 +6,10 @@
 #include "inode.h"
 #include "super.h"
 #include "tx.h"
+#include "device.h"
 
 static int cmd_help(struct super_block *, struct context *c);
+static int cmd_mkfs(struct super_block *, struct context *c);
 static int cmd_quit(struct super_block *, struct context *c);
 static bool can_quit = false;
 
@@ -23,6 +25,11 @@ static struct {
         "?",
         cmd_help,
         1,
+    },
+    {
+        "mkfs",
+        cmd_mkfs,
+        2,
     },
     {
         "cd",
@@ -103,6 +110,33 @@ static int cmd_help(struct super_block *sb, struct context *c) {
   for (; cmdtable[i].name; i++) {
     printf("%s\n", cmdtable[i].name);
   }
+  return 0;
+}
+
+static int cmd_mkfs(struct super_block *sb, struct context *c) {
+  int ret;
+  struct device *dev = sb->dev;
+  if (sb->dev == NULL) {
+    printf("???\n");
+  }
+  struct super_block *sb_tmp = testfs_make_super_block(sb->dev);
+  testfs_make_inode_freemap(sb_tmp);
+  testfs_make_block_freemap(sb_tmp);
+  testfs_make_csum_table(sb_tmp);
+  testfs_make_inode_blocks(sb_tmp);
+  testfs_flush_super_block(sb_tmp);
+  free(sb_tmp);
+  free(sb);
+  ret = testfs_init_super_block(dev, 0, &sb);
+  if (ret) {
+    EXIT("testfs_init_super_block");;
+  }
+  ret = testfs_make_root_dir(sb);
+  if (ret) {
+    EXIT("testfs_make_root_dir");
+  }
+  testfs_flush_super_block(sb);
+  free(sb);
   return 0;
 }
 
@@ -225,12 +259,16 @@ int main(int argc, char *const argv[]) {
   // inode of directory from which cmd was issued, and no of args.
 
   struct args *args = parse_arguments(argc, argv);
+  struct device *dev = dev_init(args->disk);
+  if (dev == NULL) {
+    EXIT("device_init");
+  }
 
   // args->disk contains the name of the disk file.
   // initializes the in memory structure sb with data that is
   // read from the disk. after successful execution, we have
   // sb initialized to dsuper_block read from disk.
-  ret = testfs_init_super_block(args->disk, args->corrupt, &sb);
+  ret = testfs_init_super_block(dev, args->corrupt, &sb);
   if (ret) {
     EXIT("testfs_init_super_block");
   }
@@ -248,7 +286,13 @@ int main(int argc, char *const argv[]) {
     name = strtok(line, " \t\n");
     args = strtok(NULL, "\n");
     handle_command(sb, &c, name, args);
-
+    if (strcmp(name, "mkfs") == 0) {
+      ret = testfs_init_super_block(dev, 0, &sb);
+      if (ret) {
+        EXIT("testfs_init_super_block");
+      }
+      c.cur_dir = testfs_get_inode(sb, 0);
+    }
     if (can_quit) {
       break;
     }
