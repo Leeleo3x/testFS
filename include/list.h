@@ -1,5 +1,6 @@
 #ifndef _LIST_H_
 #define _LIST_H_
+#include <stddef.h>
 #include <assert.h>
 
 /* This is code stolen from various Linux kernel headers: hash.h, list.h, etc.

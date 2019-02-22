@@ -1,5 +1,45 @@
 {
   "files.associations": {
-    "testfs.h": "c"
-  }
+    "testfs.h": "c",
+    "dir.h": "c",
+    "inode.h": "c",
+    "list.h": "c",
+    "bitmap.h": "c",
+    "super.h": "c",
+    "assert.h": "c",
+    "env.h": "c",
+    "nvme.h": "c"
+  },
+  "C_Cpp.configurationWarnings": "Disabled",
+  "cmake.configureOnOpen": false,
+  "cSpell.words": [
+    "spdk"
+  ],
+  "cSpell.enabledLanguageIds": [
+    "asciidoc",
+    "cpp",
+    "csharp",
+    "css",
+    "go",
+    "handlebars",
+    "html",
+    "jade",
+    "javascript",
+    "javascriptreact",
+    "json",
+    "latex",
+    "less",
+    "markdown",
+    "php",
+    "plaintext",
+    "pub",
+    "python",
+    "restructuredtext",
+    "rust",
+    "scss",
+    "text",
+    "typescript",
+    "typescriptreact",
+    "yml"
+  ]
 }

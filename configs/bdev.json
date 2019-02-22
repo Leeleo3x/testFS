@@ -1,0 +1,17 @@
+{
+  "subsystems": [
+    {
+      "subsystem": "bdev",
+      "config": [
+        {
+          "params": {
+            "trtype": "PCIe",
+            "name": "Nvme0",
+            "traddr": "0000:00:0e.0"
+          },
+          "method": "construct_nvme_bdev"
+        }
+      ]
+    }
+  ]
+}

@@ -3,6 +3,7 @@
 
 #include "bitmap.h"
 #include "list.h"
+#include "super.h"
 
 typedef enum { I_NONE, I_FILE, I_DIR } inode_type;
 

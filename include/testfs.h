@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include "common.h"
 
-#define BLOCK_SIZE 64
+#define BLOCK_SIZE 512
 
 #define SUPER_BLOCK_SIZE 1   /* start 0x0000 */
 #define INODE_FREEMAP_SIZE 1 /* start 0x0040 */

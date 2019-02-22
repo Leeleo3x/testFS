@@ -1,6 +1,9 @@
 #ifndef _DIR_H
 #define _DIR_H
 
+#include "inode.h"
+#include "super.h"
+
 struct dirent {
   int d_name_len;
   int d_inode_nr;
