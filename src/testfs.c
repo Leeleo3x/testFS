@@ -87,9 +87,19 @@ static struct {
         2,
     },
     {
+        "export",
+        cmd_export,
+        2,
+    },
+    {
         "owrite",
         cmd_owrite,
         3,
+    },
+    {
+        "import",
+        cmd_import,
+        2,
     },
     {
         "checkfs",

@@ -32,6 +32,8 @@ int cmd_create(struct super_block *, struct context *c);
 int cmd_stat(struct super_block *, struct context *c);
 int cmd_rm(struct super_block *, struct context *c);
 int cmd_mkdir(struct super_block *, struct context *c);
+int cmd_import(struct super_block *, struct context *c);
+int cmd_export(struct super_block *, struct context *c);
 
 int cmd_cat(struct super_block *, struct context *c);
 int cmd_catr(struct super_block *, struct context *c);

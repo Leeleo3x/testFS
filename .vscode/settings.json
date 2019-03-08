@@ -23,7 +23,9 @@
     "stdinc.h": "c",
     "chrono": "c",
     "device.h": "c",
-    "istream": "c"
+    "istream": "c",
+    "common.h": "c",
+    "ios": "c"
   },
   "C_Cpp.configurationWarnings": "Disabled",
   "cmake.configureOnOpen": false,

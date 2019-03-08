@@ -229,7 +229,7 @@ static int testfs_create_empty_dir(struct super_block *sb, int p_inode_nr,
  dir is the inode corresponding to current directory.
  */
 
-static int testfs_create_file_or_dir(struct super_block *sb, struct inode *dir,
+int testfs_create_file_or_dir(struct super_block *sb, struct inode *dir,
                                      inode_type type, char *name) {
   int ret = 0;
   struct inode *in;
