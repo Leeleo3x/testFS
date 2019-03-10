@@ -4,7 +4,7 @@ find_package(Git REQUIRED)
 
 ExternalProject_Add(LibSPDK
     GIT_REPOSITORY https://github.com/spdk/spdk
-    GIT_TAG df517550cc9c35971008bde4010f20082f4ecbe4
+    GIT_TAG a2bf3cded37b7cc7e402eae80da90891f921b56d
     UPDATE_COMMAND ""
     CONFIGURE_COMMAND ./configure 
     INSTALL_COMMAND ""

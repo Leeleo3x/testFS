@@ -7,6 +7,11 @@
 struct device {
   FILE *raw;
 };
+#elif BDEV_DEVICE
+#include "device_bdev.h"
+struct device {
+  struct ns_entry *raw;
+};
 #else
 #include "device_nvme.h"
 struct device {

@@ -25,7 +25,8 @@
     "device.h": "c",
     "istream": "c",
     "common.h": "c",
-    "ios": "c"
+    "ios": "c",
+    "device_bdev.h": "c"
   },
   "C_Cpp.configurationWarnings": "Disabled",
   "cmake.configureOnOpen": false,
