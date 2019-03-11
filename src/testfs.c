@@ -14,6 +14,9 @@ static int cmd_quit(struct super_block *, struct context *c);
 static bool can_quit = false;
 
 #define PROMPT printf("%s", "% ")
+#define FS_DOES_NOT_EXIST_ERROR "Cannot execute \"%s\" because a file "\
+                                "system does not exist on the underlying "\
+                                "device. Please run \"mkfs\" first.\n"
 
 static struct {
   const char *name;
@@ -113,6 +116,26 @@ static struct {
     },
     {NULL, NULL}};
 
+// These commands are the only commands that can be executed
+// if a file system does not exist (i.e. the user has not run mkfs)
+static const char *non_fs_commands[] = {"?", "quit", "mkfs", NULL};
+
+static bool fs_exists(struct context *c) {
+  return testfs_inode_get_type(c->cur_dir) == I_DIR;
+}
+
+static bool can_execute_command(struct context *c, char *command) {
+  if (fs_exists(c)) {
+    return true;
+  }
+  for (size_t i = 0; non_fs_commands[i] != NULL; i++) {
+    if (strcmp(non_fs_commands[i], command) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static int cmd_help(struct super_block *sb, struct context *c) {
   int i = 0;
 
@@ -170,6 +193,11 @@ static void handle_command(struct super_block *sb, struct context *c,
 
   for (i = 0; cmdtable[i].name; i++) {
     if (strcmp(name, cmdtable[i].name) == 0) {
+      if (!can_execute_command(c, name)) {
+        printf(FS_DOES_NOT_EXIST_ERROR, name);
+        return;
+      }
+
       char *token = args;
       assert(cmdtable[i].func);
 
@@ -310,9 +338,24 @@ int main(int argc, char *const argv[]) {
   }
 
   free(line);
+
+  // Need to compute this before removing the in-memory inode
+  bool file_system_exists = fs_exists(&c);
+
   // decrement inode count by 1. remove inode from in_memory hash map if
   // inode count has become 0.
   testfs_put_inode(c.cur_dir);
-  testfs_close_super_block(sb);
+
+  if (file_system_exists) {
+    testfs_close_super_block(sb);
+  } else {
+    // If the file system was never created, skip the flush of the super block
+    // but make sure that the underlying device is still closed.
+    dflush(dev);
+    dclose(dev);
+    free(dev);
+    free(sb);
+  }
+
   return 0;
 }

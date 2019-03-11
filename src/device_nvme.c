@@ -174,5 +174,5 @@ void dflush(struct device *dev) {
 }
 
 void dclose(struct device *dev) {
-
+  cleanup();
 }
