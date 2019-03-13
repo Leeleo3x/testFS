@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-struct device *dev_init(const char *file) {
+void dev_init(const char *file, device_init_cb cb) {
   int sock;
   struct device dss;
   if ((sock = open(file, O_RDWR
@@ -13,15 +13,15 @@ struct device *dev_init(const char *file) {
                              | O_SYNC
 #endif
                    )) < 0) {
-    return NULL;
+    return;
   } 
   FILE *f;
   if ((f = fdopen(sock, "r+")) == NULL) {
-    return NULL;
+    return;
   };
   struct device *dev = malloc(sizeof(struct device));
   dev->raw = f;
-  return dev;
+  cb(dev);
 }
 
 void dflush(struct device *dev) {

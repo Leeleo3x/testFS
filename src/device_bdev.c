@@ -6,15 +6,6 @@
 #include "device.h"
 #include "device_bdev.h"
 
-struct ctrlr_entry {
-  struct spdk_nvme_ctrlr *ctrlr;
-  struct ctrlr_entry *next;
-  char name[1024];
-};
-
-static struct ctrlr_entry *g_controllers = NULL;
-static struct ns_entry *g_namespaces = NULL;
-
 static struct bdev_context *init_bdev_context(struct spdk_bdev *pre_bdev) {
   struct bdev_context *context = malloc(sizeof(struct bdev_context));
   if (pre_bdev == NULL) {
@@ -46,22 +37,29 @@ err:
 }
 
 static void start(void *arg1, void *arg2) {
+  struct device dev;
   struct ns_entry entry;
+  device_init_cb cb = (device_init_cb)arg1;
   struct spdk_bdev *pre_bdev = NULL;
   for (int i = 0; i < NumberOfLuns; i++) {
     entry.contexts[i] =  init_bdev_context(pre_bdev);
     pre_bdev = entry.contexts[i]->bdev;
   }
+  dev.raw = &entry;
+  cb(&dev);
+  for (int i = 0; i < NumberOfLuns; i++) {
+    spdk_bdev_close(entry.contexts[i]->bdev_desc);
+    free(entry.contexts[i]);
+  }
 }
 
-struct device *dev_init(const char *f) {
+void dev_init(const char *f, device_init_cb cb) {
   int rc;
   struct spdk_app_opts opts = {};
   spdk_app_opts_init(&opts);
   opts.name = "hello_world";
   opts.config_file = "config.conf";
-  spdk_app_start(&opts, start, NULL);
-  return NULL;
+  spdk_app_start(&opts, start, cb);
 }
 
 void dflush(struct device *dev) {}

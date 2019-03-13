@@ -19,8 +19,9 @@ struct device {
 };
 #endif
 
+typedef void (* device_init_cb)(struct device *dev);
 
-struct device *dev_init(const char *file);
+void dev_init(const char *file, device_init_cb cb);
 
 
 void dflush(struct device *);

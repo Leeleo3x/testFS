@@ -20,7 +20,7 @@ void read_blocks(struct super_block *sb, char *blocks, int start, int nr) {
   struct hello_world_sequence sequence;
 
   sequence.buf = spdk_zmalloc(nr * BLOCK_SIZE, 0, NULL, SPDK_ENV_SOCKET_ID_ANY,
-                               SPDK_MALLOC_DMA);
+                              SPDK_MALLOC_DMA);
   int rc = spdk_nvme_ns_cmd_read(entry->ns, entry->qpair, sequence.buf,
                                  start, /* LBA start */
                                  nr,    /* number of LBAs */

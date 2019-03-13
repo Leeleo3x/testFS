@@ -287,36 +287,30 @@ static struct args *parse_arguments(int argc, char *const argv[]) {
   return &args;
 }
 
-int main(int argc, char *const argv[]) {
-  struct super_block *sb;
+
+void testfs_main(struct device *dev) {
   char *line = NULL;
-  size_t line_size = 0;
   ssize_t nr;
-  int ret;
+  size_t line_size = 0;
+  struct super_block *sb = malloc(sizeof(struct super_block));
   struct context c;
-  // context contains command line arguments/parameters,
-  // inode of directory from which cmd was issued, and no of args.
+  int ret;
 
-  struct args *args = parse_arguments(argc, argv);
-  struct device *dev = dev_init(args->disk);
-  if (dev == NULL) {
-    EXIT("device_init");
-  }
-
+  sb->dev = dev;
   // args->disk contains the name of the disk file.
   // initializes the in memory structure sb with data that is
   // read from the disk. after successful execution, we have
   // sb initialized to dsuper_block read from disk.
-  ret = testfs_init_super_block(dev, args->corrupt, &sb);
-  if (ret) {
-    EXIT("testfs_init_super_block");
-  }
+  // int ret = testfs_init_super_block(dev, 0, &sb);
+  // if (ret) {
+  //   EXIT("testfs_init_super_block");
+  // }
   /* if the inode does not exist in the inode_hash_map (which
    is an inmemory map of all inode blocks, create a new inode by
    allocating memory to it. read the dinode from disk into that
    memory inode
    */
-  c.cur_dir = testfs_get_inode(sb, 0); /* root dir */
+  // c.cur_dir = testfs_get_inode(sb, 0); /* root dir */
   for (; PROMPT, (nr = getline(&line, &line_size, stdin)) != EOF;) {
     char *name;
     char *args;
@@ -356,6 +350,13 @@ int main(int argc, char *const argv[]) {
     free(dev);
     free(sb);
   }
+}
 
+int main(int argc, char *const argv[]) {
+  // context contains command line arguments/parameters,
+  // inode of directory from which cmd was issued, and no of args.
+
+  struct args *args = parse_arguments(argc, argv);
+  dev_init(args->disk, testfs_main);
   return 0;
 }

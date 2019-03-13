@@ -122,7 +122,7 @@ static void cleanup(void) {
   }
 }
 
-struct device *dev_init(const char *f) {
+void dev_init(const char *f, device_init_cb cb) {
   int rc;
   struct spdk_env_opts opts;
 
@@ -137,7 +137,7 @@ struct device *dev_init(const char *f) {
   opts.shm_id = 0;
   if (spdk_env_init(&opts) < 0) {
     fprintf(stderr, "Unable to initialize SPDK env\n");
-    return NULL;
+    return;
   }
 
   printf("Initializing NVMe Controllers\n");
@@ -153,20 +153,21 @@ struct device *dev_init(const char *f) {
   if (rc != 0) {
     fprintf(stderr, "spdk_nvme_probe() failed\n");
     cleanup();
-    return NULL;
+    return;
   }
 
   if (g_controllers == NULL) {
     fprintf(stderr, "no NVMe controllers found\n");
     cleanup();
-    return NULL;
+    return;
   }
 
   printf("Initialization complete.\n");
 
   struct device *dev = malloc(sizeof(struct device));
   dev->raw = g_namespaces;
-  return dev;
+  cb(dev);
+  cleanup();
 }
 
 void dflush(struct device *dev) {

@@ -2,7 +2,7 @@
 #define _BLOCK_DEVICE_BDEV_H
 
 
-#define NumberOfLuns 10
+#define NumberOfLuns 2
 
 struct ns_entry {
   struct bdev_context *contexts[NumberOfLuns];
