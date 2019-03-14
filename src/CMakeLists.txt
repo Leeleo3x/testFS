@@ -21,13 +21,13 @@ set(SPDKFlags
   dpdk
   -Wl,--no-whole-archive
   pthread
-  isal
   rt
   uuid
   aio
   crypto
   numa
   dl
+  m
 )
 
 add_library(testfs-file-lib
