@@ -3,7 +3,6 @@ include_directories(${SPDK_DIR}/include)
 
 link_directories(${SPDK_DIR}/build/lib)
 link_directories(${SPDK_DIR}/dpdk/build/lib)
-link_directories(${SPDK_DIR}/isa-l/.libs)
 
 set(testFSCommon
   bitmap.c
