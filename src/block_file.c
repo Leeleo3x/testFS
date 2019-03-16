@@ -8,7 +8,7 @@ static char zero[BLOCK_SIZE] = {0};
  * write buffer blocks to disk.
  */
 
-void write_blocks(struct super_block *sb, char *blocks, int start, int nr) {
+void write_blocks(struct super_block *sb, char *blocks, int start, int nr, block_write_cb cb, void *arg) {
   long pos;
 
   if ((pos = ftell(sb->dev->raw)) < 0) {
@@ -23,13 +23,14 @@ void write_blocks(struct super_block *sb, char *blocks, int start, int nr) {
   if (fseek(sb->dev->raw, pos, SEEK_SET) < 0) {
     EXIT("fseek");
   }
+  cb(arg);
 }
 
-void zero_blocks(struct super_block *sb, int start, int nr) {
+void zero_blocks(struct super_block *sb, int start, int nr, block_write_cb cb, void *arg) {
   int i;
 
   for (i = 0; i < nr; i++) {
-    write_blocks(sb, zero, start + i, 1);
+    write_blocks(sb, zero, start + i, 1, cb, arg);
   }
 }
 
@@ -39,7 +40,7 @@ void zero_blocks(struct super_block *sb, int start, int nr) {
  you need sb only for the device handle name, stored in sb->dev
  */
 
-void read_blocks(struct super_block *sb, char *blocks, int start, int nr) {
+void read_blocks(struct super_block *sb, char *blocks, int start, int nr, block_read_cb cb, void *arg) {
   long pos;
 
   if ((pos = ftell(sb->dev->raw)) < 0) {
@@ -54,4 +55,5 @@ void read_blocks(struct super_block *sb, char *blocks, int start, int nr) {
   if (fseek(sb->dev->raw, pos, SEEK_SET) < 0) {
     EXIT("fseek");
   }
+  cb(blocks, arg);
 }

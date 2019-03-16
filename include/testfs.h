@@ -24,6 +24,7 @@ struct context {
   struct inode *cur_dir;
 };
 
+
 int cmd_cd(struct super_block *, struct context *c);
 int cmd_pwd(struct super_block *, struct context *c);
 int cmd_ls(struct super_block *, struct context *c);

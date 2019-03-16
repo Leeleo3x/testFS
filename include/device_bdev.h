@@ -2,6 +2,7 @@
 #define _BLOCK_DEVICE_BDEV_H
 
 
+#include "block.h"
 #define NumberOfLuns 2
 
 struct ns_entry {
@@ -22,11 +23,11 @@ struct bdev_context {
 };
 
 
-struct hello_world_sequence {
-  struct ns_entry *ns_entry;
+struct read_context {
   char *buf;
-  unsigned using_cmb_io;
-  int is_completed;
+  char *blocks;
+  block_read_cb cb;
+  void *arg;
 };
 
 #endif 

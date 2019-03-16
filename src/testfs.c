@@ -288,15 +288,12 @@ static struct args *parse_arguments(int argc, char *const argv[]) {
 }
 
 
-void testfs_main(struct device *dev) {
+void testfs_main(struct super_block *sb) {
   char *line = NULL;
-  ssize_t nr;
   size_t line_size = 0;
-  struct super_block *sb = malloc(sizeof(struct super_block));
   struct context c;
   int ret;
 
-  sb->dev = dev;
   // args->disk contains the name of the disk file.
   // initializes the in memory structure sb with data that is
   // read from the disk. after successful execution, we have
@@ -311,24 +308,26 @@ void testfs_main(struct device *dev) {
    memory inode
    */
   // c.cur_dir = testfs_get_inode(sb, 0); /* root dir */
-  for (; PROMPT, (nr = getline(&line, &line_size, stdin)) != EOF;) {
-    char *name;
-    char *args;
+  PROMPT;
+  if (getline(&line, &line_size, stdin) == EOF) {
+  	return;
+  }
+  char *name;
+  char *args;
 
-    printf("command: %s\n", line);
-    name = strtok(line, " \t\n");
-    args = strtok(NULL, "\n");
-    handle_command(sb, &c, name, args);
-    if (strcmp(name, "mkfs") == 0) {
-      ret = testfs_init_super_block(dev, 0, &sb);
-      if (ret) {
-        EXIT("testfs_init_super_block");
-      }
-      c.cur_dir = testfs_get_inode(sb, 0);
+  printf("command: %s\n", line);
+  name = strtok(line, " \t\n");
+  args = strtok(NULL, "\n");
+  handle_command(sb, &c, name, args);
+  if (strcmp(name, "mkfs") == 0) {
+    ret = testfs_init_super_block(sb->dev, 0, &sb);
+    if (ret) {
+      EXIT("testfs_init_super_block");
     }
-    if (can_quit) {
-      break;
-    }
+    c.cur_dir = testfs_get_inode(sb, 0);
+  }
+  if (can_quit) {
+  	return;
   }
 
   free(line);
@@ -345,9 +344,9 @@ void testfs_main(struct device *dev) {
   } else {
     // If the file system was never created, skip the flush of the super block
     // but make sure that the underlying device is still closed.
-    dflush(dev);
-    dclose(dev);
-    free(dev);
+    dflush(sb->dev);
+    dclose(sb->dev);
+    free(sb->dev);
     free(sb);
   }
 }
@@ -356,7 +355,8 @@ int main(int argc, char *const argv[]) {
   // context contains command line arguments/parameters,
   // inode of directory from which cmd was issued, and no of args.
 
+  struct super_block super;
   struct args *args = parse_arguments(argc, argv);
-  dev_init(args->disk, testfs_main);
+  dev_init(args->disk, &super, testfs_main);
   return 0;
 }

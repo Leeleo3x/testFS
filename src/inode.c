@@ -103,23 +103,69 @@ static void testfs_write_inode_block(struct inode *in, char *block) {
  * returns 0 if physical block does not exist.
  * returns negative value on other errors. */
 
+enum testfs_get_block_states {
+	READ_DATA = 0,
+	READ_DATA_INDIRECT
+};
+
+struct testfs_get_block_context {
+	void (* cb)(int);
+	int log_block_nr;
+	int phy_block_nr;
+	struct inode *in;
+	enum testfs_get_block_states state;
+};
+
+static void testfs_get_block_cb(char *block, void *arg) {
+  struct testfs_get_block_context *context = arg;
+  if (block == NULL) {
+    context->cb(-EIO);
+  }
+  switch (context->state) {
+  case READ_DATA_INDIRECT: {
+    int phy_block_nr = ((int *)block)[context->log_block_nr];
+    if (phy_block_nr > 0) {
+      context->state = READ_DATA;
+      context->phy_block_nr = phy_block_nr;
+      read_blocks(context->in->sb, block, phy_block_nr, 1, testfs_get_block_cb, context);
+    }
+    else context->cb(phy_block_nr);
+  }
+  case READ_DATA: {
+  	context->cb(context->phy_block_nr);
+  }
+  }
+}
+
 // also reads the block into block buffer.
-static int testfs_get_block(struct inode *in, char *block, int log_block_nr) {
+static void testfs_get_block(struct inode *in, char *block, int log_block_nr, void (* cb)(int)) {
   int phy_block_nr;
+  struct testfs_get_block_context *context = malloc(sizeof(struct testfs_get_block_context));
+  context->cb = cb;
+  context->in = in;
 
   assert(log_block_nr >= 0);
   if (log_block_nr < NR_DIRECT_BLOCKS) {
     phy_block_nr = in->in.i_block_nr[log_block_nr];
-    goto read_block;
+    context->state = READ_DATA;
+    context->phy_block_nr = phy_block_nr;
+    if (phy_block_nr > 0) read_blocks(in->sb, block, phy_block_nr, 1, testfs_get_block_cb, context);
+    else cb(phy_block_nr);
   }
-  log_block_nr -= NR_DIRECT_BLOCKS;
-  if (log_block_nr >= NR_INDIRECT_BLOCKS) return -EFBIG;
-  if (in->in.i_indirect == 0) return 0;
-  read_blocks(in->sb, block, in->in.i_indirect, 1);
-  phy_block_nr = ((int *)block)[log_block_nr];
-read_block:
-  if (phy_block_nr > 0) read_blocks(in->sb, block, phy_block_nr, 1);
-  return phy_block_nr;
+  else {
+    log_block_nr -= NR_DIRECT_BLOCKS;
+    if (log_block_nr >= NR_INDIRECT_BLOCKS) {
+      cb(-EFBIG);
+      return;
+    }
+    if (in->in.i_indirect == 0) {
+      cb(0);
+      return;
+    }
+    context->state = READ_DATA_INDIRECT;
+    context->log_block_nr = log_block_nr;
+    read_blocks(in->sb, block, in->in.i_indirect, 1, testfs_get_block_cb, context);
+  }
 }
 
 static int testfs_allocate_block(struct inode *in, char *block,
