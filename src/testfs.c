@@ -193,10 +193,10 @@ static void handle_command(struct super_block *sb, struct context *c,
 
   for (i = 0; cmdtable[i].name; i++) {
     if (strcmp(name, cmdtable[i].name) == 0) {
-      if (!can_execute_command(c, name)) {
-        printf(FS_DOES_NOT_EXIST_ERROR, name);
-        return;
-      }
+//      if (!can_execute_command(c, name)) {
+//        printf(FS_DOES_NOT_EXIST_ERROR, name);
+//        return;
+//      }
 
       char *token = args;
       assert(cmdtable[i].func);
@@ -288,7 +288,8 @@ static struct args *parse_arguments(int argc, char *const argv[]) {
 }
 
 
-void testfs_main(struct device *dev) {
+void testfs_main(void *arg1, void *arg2) {
+  struct device *dev = arg1;
   char *line = NULL;
   ssize_t nr;
   size_t line_size = 0;

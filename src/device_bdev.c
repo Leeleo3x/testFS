@@ -6,6 +6,8 @@
 #include "device.h"
 #include "device_bdev.h"
 
+extern sem_t sem;
+
 static struct bdev_context *init_bdev_context(struct spdk_bdev *pre_bdev) {
   struct bdev_context *context = malloc(sizeof(struct bdev_context));
   if (pre_bdev == NULL) {
@@ -13,6 +15,7 @@ static struct bdev_context *init_bdev_context(struct spdk_bdev *pre_bdev) {
   } else {
     context->bdev = spdk_bdev_next(pre_bdev);
   }
+  printf("BLOCK_SIZE %d\n", spdk_bdev_get_block_size(context->bdev));
   if (context->bdev == NULL) {
     SPDK_ERRLOG("Could not get bdev\n");
     goto err;
@@ -37,20 +40,18 @@ err:
 }
 
 static void start(void *arg1, void *arg2) {
-  struct device dev;
-  struct ns_entry entry;
+  struct device *dev = malloc(sizeof(struct device));
+  struct ns_entry *entry = malloc(sizeof(struct ns_entry));
   device_init_cb cb = (device_init_cb)arg1;
   struct spdk_bdev *pre_bdev = NULL;
+  sem_init(&sem, 0, 0);
   for (int i = 0; i < NumberOfLuns; i++) {
-    entry.contexts[i] =  init_bdev_context(pre_bdev);
-    pre_bdev = entry.contexts[i]->bdev;
+    entry->contexts[i] =  init_bdev_context(pre_bdev);
+    pre_bdev = entry->contexts[i]->bdev;
   }
-  dev.raw = &entry;
-  cb(&dev);
-  for (int i = 0; i < NumberOfLuns; i++) {
-    spdk_bdev_close(entry.contexts[i]->bdev_desc);
-    free(entry.contexts[i]);
-  }
+  dev->raw = entry;
+  struct spdk_even *event = spdk_event_allocate(1, cb, dev, NULL);
+  spdk_event_call(event);
 }
 
 void dev_init(const char *f, device_init_cb cb) {
@@ -59,6 +60,7 @@ void dev_init(const char *f, device_init_cb cb) {
   spdk_app_opts_init(&opts);
   opts.name = "hello_world";
   opts.config_file = "config.conf";
+  opts.reactor_mask = "0x3";
   spdk_app_start(&opts, start, cb);
 }
 

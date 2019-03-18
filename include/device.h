@@ -19,7 +19,7 @@ struct device {
 };
 #endif
 
-typedef void (* device_init_cb)(struct device *dev);
+typedef void (* device_init_cb)(void *arg1, void *arg2);
 
 void dev_init(const char *file, device_init_cb cb);
 

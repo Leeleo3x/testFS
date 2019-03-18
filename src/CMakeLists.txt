@@ -26,6 +26,7 @@ set(SPDKFlags
   crypto
   numa
   dl
+  isal
   m
 )
 

@@ -21,7 +21,7 @@ void dev_init(const char *file, device_init_cb cb) {
   };
   struct device *dev = malloc(sizeof(struct device));
   dev->raw = f;
-  cb(dev);
+  cb(dev, NULL);
 }
 
 void dflush(struct device *dev) {

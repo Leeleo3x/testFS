@@ -166,7 +166,7 @@ void dev_init(const char *f, device_init_cb cb) {
 
   struct device *dev = malloc(sizeof(struct device));
   dev->raw = g_namespaces;
-  cb(dev);
+  cb(dev, NULL);
   cleanup();
 }
 
