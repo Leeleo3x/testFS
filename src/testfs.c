@@ -149,7 +149,10 @@ static int cmd_help(struct super_block *sb, struct context *c) {
 void cmd_mkfs_cb(void *arg) {
   struct super_block *sb = arg;
   free(sb);
-
+  struct testfs_init_super_block_context *context = malloc(sizeof(struct testfs_init_super_block_context));
+  context->sbp = &sb;
+  context->cb_arg = sb;
+  context->cb =
   testfs_init_super_block(dev, 0, &sb);
   if (ret) {
     EXIT("testfs_init_super_block");;
