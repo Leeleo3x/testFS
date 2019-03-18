@@ -1,6 +1,7 @@
 #ifndef _BLOCK_H
 #define _BLOCK_H
 #include "super.h"
+#include "stdint.h"
 
 typedef void (* block_read_cb)(char *blocks, void *arg);
 typedef void (* block_write_cb)(void *arg);

@@ -43,4 +43,6 @@ int cmd_owrite(struct super_block *, struct context *c);
 
 int cmd_checkfs(struct super_block *, struct context *c);
 
+void cmd_mkfs_cb(void *arg);
+
 #endif /* _TESTFS_H */

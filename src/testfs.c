@@ -146,18 +146,11 @@ static int cmd_help(struct super_block *sb, struct context *c) {
   return 0;
 }
 
-static int cmd_mkfs(struct super_block *sb, struct context *c) {
-  int ret;
-  struct device *dev = sb->dev;
-  struct super_block *sb_tmp = testfs_make_super_block(sb->dev);
-  testfs_make_inode_freemap(sb_tmp);
-  testfs_make_block_freemap(sb_tmp);
-  testfs_make_csum_table(sb_tmp);
-  testfs_make_inode_blocks(sb_tmp);
-  testfs_flush_super_block(sb_tmp);
-  free(sb_tmp);
+void cmd_mkfs_cb(void *arg) {
+  struct super_block *sb = arg;
   free(sb);
-  ret = testfs_init_super_block(dev, 0, &sb);
+
+  testfs_init_super_block(dev, 0, &sb);
   if (ret) {
     EXIT("testfs_init_super_block");;
   }
@@ -165,9 +158,12 @@ static int cmd_mkfs(struct super_block *sb, struct context *c) {
   if (ret) {
     EXIT("testfs_make_root_dir");
   }
-  testfs_flush_super_block(sb);
-  free(sb);
-  return 0;
+}
+
+static int cmd_mkfs(struct super_block *sb, struct context *c) {
+  int ret;
+  struct device *dev = sb->dev;
+  testfs_make_super_block(sb->dev);
 }
 
 static int cmd_quit(struct super_block *sb, struct context *c) {

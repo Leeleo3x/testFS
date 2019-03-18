@@ -130,9 +130,11 @@ static void testfs_get_block_cb(char *block, void *arg) {
       read_blocks(context->in->sb, block, phy_block_nr, 1, testfs_get_block_cb, context);
     }
     else context->cb(phy_block_nr);
+    break;
   }
   case READ_DATA: {
   	context->cb(context->phy_block_nr);
+  	break;
   }
   }
 }
