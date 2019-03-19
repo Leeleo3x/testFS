@@ -1,30 +1,30 @@
 #ifndef _DEVICE_H
 #define _DEVICE_H
 
-
-#ifdef FILE_DEVICE
-#include <stdio.h>
-struct device {
-  FILE *raw;
-};
-#elif BDEV_DEVICE
-#include "device_bdev.h"
-struct device {
-  struct ns_entry *raw;
-};
-#else
-#include "device_nvme.h"
-struct device {
-  struct ns_entry *raw;
-};
-#endif
+#include <semaphore.h>
+#include <stdint.h>
 
 typedef void (* device_init_cb)(void *arg1, void *arg2);
 
 void dev_init(const char *file, device_init_cb cb);
 
 
-void dflush(struct device *);
-void dclose(struct device *);
+#define NUM_OF_LUNS 1
+#define SUPER_BLOCK_LOC 0
+
+
+struct filesystem {
+  struct super_block *sb;
+  struct bdev_context *contexts[NUM_OF_LUNS];
+};
+
+struct bdev_context {
+  struct spdk_bdev *bdev;
+  struct spdk_bdev_desc *bdev_desc;
+  sem_t sem;
+  const char *bdev_name;
+  struct spdk_bdev_io_wait_entry *bdev_io_wait;
+  size_t buf_align;
+};
 
 #endif

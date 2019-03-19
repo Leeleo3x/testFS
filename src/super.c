@@ -6,16 +6,13 @@
 #include "inode.h"
 #include "testfs.h"
 
-struct super_block *testfs_make_super_block(struct device *dev) {
+void testfs_make_super_block(struct filesystem *fs) {
   struct super_block *sb = calloc(1, sizeof(struct super_block));
-
   if (!sb) {
     EXIT("malloc");
   }
-  sb->dev = dev;
-  if (sb->dev == NULL) {
-    EXIT("device");
-  }
+  sb->fs = fs;
+  fs->sb = sb;
   sb->sb.inode_freemap_start = SUPER_BLOCK_SIZE;
   sb->sb.block_freemap_start = sb->sb.inode_freemap_start + INODE_FREEMAP_SIZE;
   sb->sb.csum_table_start = sb->sb.block_freemap_start + BLOCK_FREEMAP_SIZE;
@@ -24,7 +21,6 @@ struct super_block *testfs_make_super_block(struct device *dev) {
   sb->sb.modification_time = 0;
   testfs_write_super_block(sb);
   inode_hash_init();
-  return sb;
 }
 
 void testfs_make_inode_freemap(struct super_block *sb) {
@@ -52,8 +48,7 @@ void testfs_make_inode_blocks(struct super_block *sb) {
  this function initializes all the in memory data structures maintained by the
  sb block.
  */
-int testfs_init_super_block(struct device *dev, int corrupt,
-                            struct super_block **sbp) {
+int testfs_init_super_block(struct filesystem *fs, int corrupt) {
   struct super_block *sb = malloc(sizeof(struct super_block));
   char block[BLOCK_SIZE];
   int ret;
@@ -64,7 +59,8 @@ int testfs_init_super_block(struct device *dev, int corrupt,
 
   // sb->dev type = FILE
   // read from sb into block.
-  sb->dev = dev;
+  fs->sb = sb;
+  sb->fs = fs;
   read_blocks(sb, block, 0, 1);
   // copy only 24 bytes from block corresponding to dsuper_block
   memcpy(&sb->sb, block, sizeof(struct dsuper_block));
@@ -101,7 +97,6 @@ int testfs_init_super_block(struct device *dev, int corrupt,
    node of the first pointer has a prev pointer and a next pointer.
    */
   inode_hash_init();
-  *sbp = sb;
 
   return 0;
 }
@@ -146,9 +141,6 @@ void testfs_flush_super_block(struct super_block *sb) {
 
 void testfs_close_super_block(struct super_block *sb) {
   testfs_flush_super_block(sb);
-  dflush(sb->dev);
-  dclose(sb->dev);
-  free(sb->dev);
   free(sb);
 }
 

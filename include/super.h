@@ -15,23 +15,22 @@ struct dsuper_block {
 
 struct super_block {
   struct dsuper_block sb;
-  struct device *dev;
   struct bitmap *inode_freemap;
   struct bitmap *block_freemap;
   tx_type tx_in_progress;
+  struct filesystem *fs;
 
   // TODO: add your code here
   int *csum_table;
 };
 
-struct super_block *testfs_make_super_block(struct device *dev);
+void testfs_make_super_block(struct filesystem *dev);
 void testfs_make_inode_freemap(struct super_block *sb);
 void testfs_make_block_freemap(struct super_block *sb);
 void testfs_make_csum_table(struct super_block *sb);
 void testfs_make_inode_blocks(struct super_block *sb);
 
-int testfs_init_super_block(struct device *dev, int corrupt,
-                            struct super_block **sbp);
+int testfs_init_super_block(struct filesystem *fs, int corrupt);
 void testfs_write_super_block(struct super_block *sb);
 void testfs_close_super_block(struct super_block *sb);
 void testfs_flush_super_block(struct super_block *sb);

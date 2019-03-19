@@ -1,7 +1,7 @@
 #ifndef _BLOCK_H
 #define _BLOCK_H
-#include "super.h"
 
+#include "device.h"
 
 void write_blocks(struct super_block *sb, char *blocks, int start, int nr);
 void read_blocks(struct super_block *sb, char *blocks, int start, int nr);

@@ -8,9 +8,9 @@
 #include "tx.h"
 #include "device.h"
 
-static int cmd_help(struct super_block *, struct context *c);
-static int cmd_mkfs(struct super_block *, struct context *c);
-static int cmd_quit(struct super_block *, struct context *c);
+static int cmd_help(struct super_block*, struct context *c);
+static int cmd_mkfs(struct super_block*, struct context *c);
+static int cmd_quit(struct super_block*, struct context *c);
 static bool can_quit = false;
 
 #define PROMPT printf("%s", "% ")
@@ -148,25 +148,27 @@ static int cmd_help(struct super_block *sb, struct context *c) {
 
 static int cmd_mkfs(struct super_block *sb, struct context *c) {
   int ret;
-  struct device *dev = sb->dev;
-  struct super_block *sb_tmp = testfs_make_super_block(sb->dev);
+  struct filesystem *fs = c->fs;
+  free(sb);
+  testfs_make_super_block(fs);
+  struct super_block *sb_tmp = fs->sb;
   testfs_make_inode_freemap(sb_tmp);
   testfs_make_block_freemap(sb_tmp);
   testfs_make_csum_table(sb_tmp);
   testfs_make_inode_blocks(sb_tmp);
   testfs_flush_super_block(sb_tmp);
   free(sb_tmp);
-  free(sb);
-  ret = testfs_init_super_block(dev, 0, &sb);
+  ret = testfs_init_super_block(fs, 0);
   if (ret) {
     EXIT("testfs_init_super_block");;
   }
-  ret = testfs_make_root_dir(sb);
+  ret = testfs_make_root_dir(fs->sb);
   if (ret) {
     EXIT("testfs_make_root_dir");
   }
-  testfs_flush_super_block(sb);
-  free(sb);
+  testfs_flush_super_block(fs->sb);
+  testfs_init_super_block(fs, 0);
+  c->cur_dir = testfs_get_inode(fs->sb, 0);
   return 0;
 }
 
@@ -289,15 +291,16 @@ static struct args *parse_arguments(int argc, char *const argv[]) {
 
 
 void testfs_main(void *arg1, void *arg2) {
-  struct device *dev = arg1;
+  struct filesystem *fs = arg1;
   char *line = NULL;
   ssize_t nr;
   size_t line_size = 0;
   struct super_block *sb = malloc(sizeof(struct super_block));
+  fs->sb = sb;
+  sb->fs = fs;
   struct context c;
+  c.fs = fs;
   int ret;
-
-  sb->dev = dev;
   // args->disk contains the name of the disk file.
   // initializes the in memory structure sb with data that is
   // read from the disk. after successful execution, we have
@@ -319,14 +322,7 @@ void testfs_main(void *arg1, void *arg2) {
     printf("command: %s\n", line);
     name = strtok(line, " \t\n");
     args = strtok(NULL, "\n");
-    handle_command(sb, &c, name, args);
-    if (strcmp(name, "mkfs") == 0) {
-      ret = testfs_init_super_block(dev, 0, &sb);
-      if (ret) {
-        EXIT("testfs_init_super_block");
-      }
-      c.cur_dir = testfs_get_inode(sb, 0);
-    }
+    handle_command(c.fs->sb, &c, name, args);
     if (can_quit) {
       break;
     }
@@ -346,9 +342,7 @@ void testfs_main(void *arg1, void *arg2) {
   } else {
     // If the file system was never created, skip the flush of the super block
     // but make sure that the underlying device is still closed.
-    dflush(dev);
-    dclose(dev);
-    free(dev);
+    free(fs);
     free(sb);
   }
 }

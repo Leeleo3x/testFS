@@ -22,6 +22,7 @@ struct context {
   int nargs;
   char *cmd[MAX_ARGS + 1];  // +1 to keep the overflows
   struct inode *cur_dir;
+  struct filesystem *fs;
 };
 
 int cmd_cd(struct super_block *, struct context *c);

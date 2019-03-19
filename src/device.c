@@ -1,12 +1,12 @@
-#include "spdk/bdev.h"
-#include "spdk/env.h"
+#include <device.h>
+#include "spdk/thread.h"
 #include "spdk/event.h"
 #include "spdk/log.h"
+#include "spdk/bdev.h"
+#include "spdk/env.h"
+#include "spdk/util.h"
 
 #include "device.h"
-#include "device_bdev.h"
-
-extern sem_t sem;
 
 static struct bdev_context *init_bdev_context(struct spdk_bdev *pre_bdev) {
   struct bdev_context *context = malloc(sizeof(struct bdev_context));
@@ -25,12 +25,9 @@ static struct bdev_context *init_bdev_context(struct spdk_bdev *pre_bdev) {
     SPDK_ERRLOG("Could not open bdev: %s\n", context->bdev_name);
     goto err;
   }
-  context->bdev_io_channel = spdk_bdev_get_io_channel(context->bdev_desc);
-  if (context->bdev_io_channel == NULL) {
-    SPDK_ERRLOG("Could not create bdev I/O channel!!\n");
-    spdk_bdev_close(context->bdev_desc);
-    goto err;
-  }
+  context->buf_align = spdk_bdev_get_buf_align(context->bdev);
+  sem_init(&context->sem, 0, 0);
+
   SPDK_NOTICELOG("Bdev: %s init finished\n", context->bdev_name);
   return context;
 err:
@@ -40,17 +37,15 @@ err:
 }
 
 static void start(void *arg1, void *arg2) {
-  struct device *dev = malloc(sizeof(struct device));
-  struct ns_entry *entry = malloc(sizeof(struct ns_entry));
+  struct filesystem *fs = malloc(sizeof(struct filesystem));
+
   device_init_cb cb = (device_init_cb)arg1;
   struct spdk_bdev *pre_bdev = NULL;
-  sem_init(&sem, 0, 0);
-  for (int i = 0; i < NumberOfLuns; i++) {
-    entry->contexts[i] =  init_bdev_context(pre_bdev);
-    pre_bdev = entry->contexts[i]->bdev;
+  for (int i = 0; i < NUM_OF_LUNS; i++) {
+    fs->contexts[i] = init_bdev_context(pre_bdev);
+    pre_bdev = fs->contexts[i]->bdev;
   }
-  dev->raw = entry;
-  struct spdk_even *event = spdk_event_allocate(1, cb, dev, NULL);
+  struct spdk_event *event = spdk_event_allocate(1, cb, fs, NULL);
   spdk_event_call(event);
 }
 
@@ -64,6 +59,3 @@ void dev_init(const char *f, device_init_cb cb) {
   spdk_app_start(&opts, start, cb);
 }
 
-void dflush(struct device *dev) {}
-
-void dclose(struct device *dev) {}
