@@ -4,9 +4,6 @@
 #include <semaphore.h>
 #include <stdint.h>
 
-typedef void (* device_init_cb)(void *arg1, void *arg2);
-
-void dev_init(const char *file, device_init_cb cb);
 
 
 #define NUM_OF_LUNS 1
@@ -26,5 +23,10 @@ struct bdev_context {
   struct spdk_bdev_io_wait_entry *bdev_io_wait;
   size_t buf_align;
 };
+
+typedef void (* device_init_cb)(void *arg1, void *arg2);
+
+void dev_init(const char *file, device_init_cb cb);
+void dev_stop(struct filesystem *);
 
 #endif

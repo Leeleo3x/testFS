@@ -49,6 +49,15 @@ static void start(void *arg1, void *arg2) {
   spdk_event_call(event);
 }
 
+
+void dev_stop(struct filesystem *fs) {
+  for (int i = 0; i < NUM_OF_LUNS; i++) {
+    spdk_bdev_close(fs->contexts[i]->bdev_desc);
+    free(fs->contexts[i]);
+  }
+  spdk_app_stop(0);
+}
+
 void dev_init(const char *f, device_init_cb cb) {
   int rc;
   struct spdk_app_opts opts = {};

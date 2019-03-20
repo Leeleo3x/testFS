@@ -337,6 +337,7 @@ void testfs_main(void *arg1, void *arg2) {
   // inode count has become 0.
   testfs_put_inode(c.cur_dir);
 
+
   if (file_system_exists) {
     testfs_close_super_block(sb);
   } else {
@@ -345,6 +346,7 @@ void testfs_main(void *arg1, void *arg2) {
     free(fs);
     free(sb);
   }
+  dev_stop(fs);
 }
 
 int main(int argc, char *const argv[]) {
