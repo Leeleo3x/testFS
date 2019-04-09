@@ -155,6 +155,17 @@ static void testfs_write_inode_freemap(struct super_block *sb, int inode_nr) {
                1);
 }
 
+static void testfs_write_block_freemap_async(struct super_block *sb, int block_nr) {
+  char *freemap;
+  int nr;
+
+  assert(sb->block_freemap);
+  freemap = bitmap_getdata(sb->block_freemap);
+  nr = block_nr / (BLOCK_SIZE * BITS_PER_WORD);
+  write_blocks_async(sb->fs->contexts[INODE_LUN], freemap + (nr * BLOCK_SIZE),
+					 sb->sb.block_freemap_start + nr, 1);
+}
+
 static void testfs_write_block_freemap(struct super_block *sb, int block_nr) {
   char *freemap;
   int nr;
@@ -164,6 +175,18 @@ static void testfs_write_block_freemap(struct super_block *sb, int block_nr) {
   nr = block_nr / (BLOCK_SIZE * BITS_PER_WORD);
   write_blocks(sb, freemap + (nr * BLOCK_SIZE), sb->sb.block_freemap_start + nr,
                1);
+}
+
+/* return free block number or negative value */
+static int testfs_get_block_freemap_async(struct super_block *sb) {
+  u_int32_t index;
+  int ret;
+
+  assert(sb->block_freemap);
+  ret = bitmap_alloc(sb->block_freemap, &index);
+  if (ret < 0) return ret;
+  testfs_write_block_freemap_async(sb, index);
+  return index;
 }
 
 /* return free block number or negative value */
@@ -202,6 +225,18 @@ void testfs_put_inode_freemap(struct super_block *sb, int inode_nr) {
   assert(sb->inode_freemap);
   bitmap_unmark(sb->inode_freemap, inode_nr);
   testfs_write_inode_freemap(sb, inode_nr);
+}
+
+/* allocate a block and return its block number.
+ * returns negative value on error. */
+int testfs_alloc_block_async(struct super_block *sb, char *block) {
+  int phy_block_nr;
+
+  phy_block_nr = testfs_get_block_freemap_async(sb);
+  // if error occurred, return -ENOSPC
+  if (phy_block_nr < 0) return phy_block_nr;
+  bzero(block, BLOCK_SIZE);
+  return sb->sb.data_blocks_start + phy_block_nr;
 }
 
 /* allocate a block and return its block number.

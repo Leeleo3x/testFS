@@ -8,13 +8,36 @@
 
 #include "device.h"
 
-static struct bdev_context *init_bdev_context(struct spdk_bdev *pre_bdev) {
+
+static void
+__call_fn(void *arg1, void *arg2)
+{
+  printf("CALL_FN\n");
+  void (*fn)(void *);
+
+  fn = (void (*)(void *))arg1;
+  fn(arg2);
+}
+
+void send_request(uint32_t lcore, void (*fn)(void *), void *arg) {
+  printf("SEND_REQ\n");
+  struct spdk_event *event;
+
+  event = spdk_event_allocate(lcore, __call_fn, (void *)fn, arg);
+  spdk_event_call(event);
+}
+
+struct testfs_init_context {
+  sem_t sem;
+  uint32_t lcore;
+  struct filesystem *fs;
+};
+
+
+static void init_bdev_context(void *arg) {
+  struct testfs_init_context *c = arg;
   struct bdev_context *context = malloc(sizeof(struct bdev_context));
-  if (pre_bdev == NULL) {
-    context->bdev = spdk_bdev_first();
-  } else {
-    context->bdev = spdk_bdev_next(pre_bdev);
-  }
+  context->bdev = spdk_bdev_first();
   printf("BLOCK_SIZE %d\n", spdk_bdev_get_block_size(context->bdev));
   if (context->bdev == NULL) {
     SPDK_ERRLOG("Could not get bdev\n");
@@ -26,27 +49,34 @@ static struct bdev_context *init_bdev_context(struct spdk_bdev *pre_bdev) {
     goto err;
   }
   context->buf_align = spdk_bdev_get_buf_align(context->bdev);
+  context->io_channel = spdk_bdev_get_io_channel(context->bdev_desc);
+  context->counter = 0;
   sem_init(&context->sem, 0, 0);
 
   SPDK_NOTICELOG("Bdev: %s init finished\n", context->bdev_name);
-  return context;
+  c->fs->contexts[c->lcore] = context;
+  sem_post(&c->sem);
+  return;
 err:
   free(context);
   spdk_app_stop(-1);
-  return NULL;
+  sem_post(&c->sem);
 }
 
 static void start(void *arg1, void *arg2) {
   struct filesystem *fs = malloc(sizeof(struct filesystem));
-
-  device_init_cb cb = (device_init_cb)arg1;
-  struct spdk_bdev *pre_bdev = NULL;
-  for (int i = 0; i < NUM_OF_LUNS; i++) {
-    fs->contexts[i] = init_bdev_context(pre_bdev);
-    pre_bdev = fs->contexts[i]->bdev;
+  for (int i = 1; i <= NUM_OF_LUNS; i++) {
+    struct testfs_init_context *context = malloc(sizeof(struct testfs_init_context));
+    sem_init(&context->sem, 0, 0);
+    context->lcore = i - 1;
+    context->fs = fs;
+    send_request(i, init_bdev_context, context);
+    sem_wait(&context->sem);
+    free(context);
   }
-  struct spdk_event *event = spdk_event_allocate(1, cb, fs, NULL);
-  spdk_event_call(event);
+  printf("START FINISHED\n");
+  device_init_cb cb = (device_init_cb)arg1;
+  send_request(0, cb, fs);
 }
 
 
@@ -64,7 +94,14 @@ void dev_init(const char *f, device_init_cb cb) {
   spdk_app_opts_init(&opts);
   opts.name = "hello_world";
   opts.config_file = "config.conf";
-  opts.reactor_mask = "0x3";
+  opts.reactor_mask = "0x7";
   spdk_app_start(&opts, start, cb);
 }
 
+void wait_context(struct bdev_context *context) {
+  while (context->counter) {
+    printf("WAIT!!!!! %d\n", context->counter);
+    context->counter--;
+    sem_wait(&context->sem);
+  }
+}

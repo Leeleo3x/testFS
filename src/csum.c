@@ -23,6 +23,26 @@ static void testfs_write_csum(struct super_block *sb, int block_nr) {
   write_blocks(sb, table + (nr * BLOCK_SIZE), sb->sb.csum_table_start + nr, 1);
 }
 
+static void testfs_write_csum_asnyc(struct super_block *sb, int block_nr) {
+  int nr = block_nr * sizeof(int) / BLOCK_SIZE;
+  char *table = (char *)sb->csum_table;
+
+  assert(table);
+  write_blocks_async(sb->fs->contexts[INODE_LUN],
+					 table + (nr * BLOCK_SIZE),
+					 sb->sb.csum_table_start + nr, 1);
+}
+
+void testfs_put_csum_async(struct super_block *sb, int phy_block_nr, int csum) {
+  int block_nr = phy_block_nr - sb->sb.data_blocks_start;
+  assert(sb);
+  assert(sb->csum_table);
+
+  assert(block_nr >= 0 && block_nr < MAX_NR_CSUMS);
+  sb->csum_table[block_nr] = csum;
+  testfs_write_csum_asnyc(sb, block_nr);
+}
+
 void testfs_put_csum(struct super_block *sb, int phy_block_nr, int csum) {
   int block_nr = phy_block_nr - sb->sb.data_blocks_start;
   assert(sb);

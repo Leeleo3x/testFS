@@ -290,7 +290,7 @@ static struct args *parse_arguments(int argc, char *const argv[]) {
 }
 
 
-void testfs_main(void *arg1, void *arg2) {
+void testfs_main(void *arg1) {
   struct filesystem *fs = arg1;
   char *line = NULL;
   ssize_t nr;

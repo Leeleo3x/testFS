@@ -6,9 +6,9 @@
 
 
 
-#define NUM_OF_LUNS 1
-#define SUPER_BLOCK_LOC 0
-
+#define NUM_OF_LUNS 2
+#define INODE_LUN 0
+#define DATA_LUN 1
 
 struct filesystem {
   struct super_block *sb;
@@ -18,15 +18,20 @@ struct filesystem {
 struct bdev_context {
   struct spdk_bdev *bdev;
   struct spdk_bdev_desc *bdev_desc;
+  struct spdk_io_channel *io_channel;
   sem_t sem;
   const char *bdev_name;
   struct spdk_bdev_io_wait_entry *bdev_io_wait;
   size_t buf_align;
+  int counter;
 };
 
-typedef void (* device_init_cb)(void *arg1, void *arg2);
 
+typedef void (* device_init_cb)(void *arg1);
+
+void send_request(uint32_t lcore, void (*fn)(void *), void *arg);
 void dev_init(const char *file, device_init_cb cb);
 void dev_stop(struct filesystem *);
+void wait_context(struct bdev_context*);
 
 #endif

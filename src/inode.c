@@ -122,6 +122,84 @@ read_block:
   return phy_block_nr;
 }
 
+/* given logical block number, read physical block
+ * return physical block number.
+ * returns 0 if physical block does not exist.
+ * returns negative value on other errors. */
+
+// also reads the block into block buffer.
+static int testfs_get_block_async(struct inode *in, char *block, int log_block_nr) {
+  int phy_block_nr;
+
+  assert(log_block_nr >= 0);
+  if (log_block_nr < NR_DIRECT_BLOCKS) {
+	phy_block_nr = in->in.i_block_nr[log_block_nr];
+	goto read_block;
+  }
+  log_block_nr -= NR_DIRECT_BLOCKS;
+  if (log_block_nr >= NR_INDIRECT_BLOCKS) return -EFBIG;
+  if (in->in.i_indirect == 0) return 0;
+  read_blocks_async(in->sb->fs->contexts[INODE_LUN], block, in->in.i_indirect, 1);
+  phy_block_nr = ((int *)block)[log_block_nr];
+  read_block:
+  if (phy_block_nr > 0) read_blocks_async(in->sb->fs->contexts[INODE_LUN], block, phy_block_nr, 1);
+  return phy_block_nr;
+}
+
+
+
+static int testfs_allocate_block_async(struct inode *in, char *block, int log_block_nr) {
+  char indirect[BLOCK_SIZE];
+  int phy_block_nr;
+
+  assert(log_block_nr >= 0);
+  // this reads log_block_nr inside block buffer, and returns
+  // the phy_block_nr corresponding to the block.
+  phy_block_nr = testfs_get_block_async(in, block, log_block_nr);
+  // successfully obtained a physical block.
+  if (phy_block_nr != 0) return phy_block_nr;
+  // otherwise we will need to allocate a new physical block
+  if (log_block_nr < NR_DIRECT_BLOCKS) {
+	// initializes block buffer with 0.
+	// uses in->sb to allocate block in block freemap
+	phy_block_nr = testfs_alloc_block_async(in->sb, block);
+	// error in allocating block in freemap, return
+	// -ENOSPC
+	if (phy_block_nr < 0) return phy_block_nr;
+	// make logical-physical block number mapping
+	in->in.i_block_nr[log_block_nr] = phy_block_nr;
+	in->i_flags |= I_FLAGS_DIRTY;
+	return phy_block_nr;
+  }
+  log_block_nr -= NR_DIRECT_BLOCKS;
+  assert(log_block_nr < NR_INDIRECT_BLOCKS);
+  // if there are no indirect blocks, assign a new inode
+  // and point indirect block pointer to that newly created
+  // block.
+  if (in->in.i_indirect == 0) {
+	// indirect is the temporary char block we take here
+	phy_block_nr = testfs_alloc_block_async(in->sb, indirect);
+	if (phy_block_nr < 0) {
+	  return phy_block_nr;
+	}
+	in->in.i_indirect = phy_block_nr;
+	in->i_flags |= I_FLAGS_DIRTY;
+  } else {
+	// if we already have an indirect block, then we read the
+	// indirect block into the indirect buffer.
+	read_blocks_async(in->sb->fs->contexts[INODE_LUN], indirect,
+					  in->in.i_indirect, 1);
+  }
+  // allocate a new block and make logical to physical block mapping
+  phy_block_nr = testfs_alloc_block_async(in->sb, block);
+  if (phy_block_nr > 0) ((int *)indirect)[log_block_nr] = phy_block_nr;
+  // write the indirect buffer to disk
+  write_blocks_async(in->sb->fs->contexts[INODE_LUN], indirect,
+					 in->in.i_indirect, 1);
+  return phy_block_nr;
+
+}
+
 static int testfs_allocate_block(struct inode *in, char *block,
                                  int log_block_nr) {
   char indirect[BLOCK_SIZE];
@@ -321,40 +399,46 @@ int testfs_write_data(struct inode *in, int start, char *buf, const int size) {
   int b_offset = start % BLOCK_SIZE; /* dst offset in block for copy */
   int buf_offset = 0;                /* src offset in buf for copy */
   int done = 0;
+  printf("WWWWWRITOOOO DATA!!!\n");
 
   // fslice_data(buf, size);
 
   assert(buf);
   assert(start <= in->in.i_size);
   do {
-    int block_nr = (start + buf_offset) / BLOCK_SIZE;
-    int copy_size;
-    int csum;
+	int block_nr = (start + buf_offset) / BLOCK_SIZE;
+	int copy_size;
+	int csum;
 
-    block_nr = testfs_allocate_block(in, block, block_nr);
-    if (block_nr < 0) {
-      int orig_size = in->in.i_size;
-      in->in.i_size = MAX(orig_size, start + buf_offset);
-      in->i_flags |= I_FLAGS_DIRTY;
-      testfs_truncate_data(in, orig_size);
-      return block_nr;
-    }
-    assert(block_nr > 0);
-    if ((size - buf_offset) <= (BLOCK_SIZE - b_offset)) {
-      copy_size = size - buf_offset;
-      done = 1;
-    } else {
-      copy_size = BLOCK_SIZE - b_offset;
-    }
-    memcpy(block + b_offset, buf + buf_offset, copy_size);
-    csum = testfs_calculate_csum(block, BLOCK_SIZE);
-    write_blocks(in->sb, block, block_nr, 1);
-    testfs_put_csum(in->sb, block_nr, csum);
-    buf_offset += copy_size;
-    b_offset = 0;
+	block_nr = testfs_allocate_block_async(in, block, block_nr);
+	if (block_nr < 0) {
+	  int orig_size = in->in.i_size;
+	  in->in.i_size = MAX(orig_size, start + buf_offset);
+	  in->i_flags |= I_FLAGS_DIRTY;
+	  testfs_truncate_data(in, orig_size);
+	  return block_nr;
+	}
+	assert(block_nr > 0);
+	if ((size - buf_offset) <= (BLOCK_SIZE - b_offset)) {
+	  copy_size = size - buf_offset;
+	  done = 1;
+	} else {
+	  copy_size = BLOCK_SIZE - b_offset;
+	}
+	memcpy(block + b_offset, buf + buf_offset, copy_size);
+	csum = testfs_calculate_csum(block, BLOCK_SIZE);
+	write_blocks_async(in->sb->fs->contexts[DATA_LUN], block, block_nr, 1);
+	testfs_put_csum_async(in->sb, block_nr, csum);
+	buf_offset += copy_size;
+	b_offset = 0;
   } while (!done);
+  printf("wait inode!!!\n");
+  wait_context(in->sb->fs->contexts[INODE_LUN]);
+  printf("wait data!!!\n");
+  wait_context(in->sb->fs->contexts[DATA_LUN]);
   in->in.i_size = MAX(in->in.i_size, start + size);
   in->i_flags |= I_FLAGS_DIRTY;
+  printf("WWWWWRITOOOO FINISHED!!!\n");
   return 0;
 }
 
