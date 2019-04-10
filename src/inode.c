@@ -400,7 +400,6 @@ int testfs_write_data(struct inode *in, int start, char *buf, const int size) {
   int buf_offset = 0;                /* src offset in buf for copy */
   int done = 0;
   printf("WWWWWRITOOOO DATA!!!\n");
-
   // fslice_data(buf, size);
 
   assert(buf);
@@ -432,9 +431,7 @@ int testfs_write_data(struct inode *in, int start, char *buf, const int size) {
 	buf_offset += copy_size;
 	b_offset = 0;
   } while (!done);
-  printf("wait inode!!!\n");
   wait_context(in->sb->fs->contexts[INODE_LUN]);
-  printf("wait data!!!\n");
   wait_context(in->sb->fs->contexts[DATA_LUN]);
   in->in.i_size = MAX(in->in.i_size, start + size);
   in->i_flags |= I_FLAGS_DIRTY;
