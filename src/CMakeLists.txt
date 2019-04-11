@@ -58,8 +58,15 @@ add_executable(testfs-file testfs.c)
 set_target_properties(testfs-file PROPERTIES COMPILE_DEFINITIONS "FILE_DEVICE=1")
 target_link_libraries(testfs-file testfs-file-lib)
 
+add_executable(testfs-file-perf perf_test.c)
+set_target_properties(testfs-file-perf PROPERTIES COMPILE_DEFINITIONS "FILE_DEVICE=1")
+target_link_libraries(testfs-file-perf testfs-file-lib)
+
 add_executable(testfs-nvme testfs.c)
 target_link_libraries(testfs-nvme testfs-nvme-lib)
+
+add_executable(testfs-nvme-perf perf_test.c)
+target_link_libraries(testfs-nvme-perf testfs-nvme-lib)
 
 add_executable(testfs-bdev testfs.c)
 set_target_properties(testfs-bdev PROPERTIES COMPILE_DEFINITIONS "BDEV_DEVICE=1")
