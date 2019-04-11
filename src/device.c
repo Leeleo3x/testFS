@@ -82,6 +82,7 @@ static void start(void *arg1, void *arg2) {
 
 void dev_stop(struct filesystem *fs) {
   for (int i = 0; i < NUM_OF_LUNS; i++) {
+    spdk_put_io_channel(fs->contexts[i]->io_channel);
     spdk_bdev_close(fs->contexts[i]->bdev_desc);
     free(fs->contexts[i]);
   }
