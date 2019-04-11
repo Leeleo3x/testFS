@@ -317,3 +317,33 @@ int cmd_checkfs(struct super_block *sb, struct context *c) {
          bitmap_nr_allocated(sb->block_freemap));
   return 0;
 }
+
+int cmd_mkfs(struct super_block *sb, struct context *c) {
+  int ret;
+  struct filesystem *fs = c->fs;
+  free(sb);
+  testfs_make_super_block(fs);
+  struct super_block *sb_tmp = fs->sb;
+  testfs_make_inode_freemap(sb_tmp);
+  testfs_make_block_freemap(sb_tmp);
+  testfs_make_csum_table(sb_tmp);
+  testfs_make_inode_blocks(sb_tmp);
+  testfs_flush_super_block(sb_tmp);
+  free(sb_tmp);
+  ret = testfs_init_super_block(fs, 0);
+  if (ret) {
+	EXIT("testfs_init_super_block");;
+  }
+  ret = testfs_make_root_dir(fs->sb);
+  if (ret) {
+	EXIT("testfs_make_root_dir");
+  }
+  testfs_flush_super_block(fs->sb);
+  ret = testfs_init_super_block(fs, 0);
+  if (ret) {
+	EXIT("testfs_init_super_block");;
+  }
+  c->cur_dir = testfs_get_inode(fs->sb, 0);
+  return 0;
+}
+

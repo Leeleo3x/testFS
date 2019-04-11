@@ -22,8 +22,6 @@ void free_request(struct request *request) {
 }
 
 static void complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg) {
-  printf("complete\n");
-  printf("current core %d \n", spdk_env_get_current_core());
   struct request *request = cb_arg;
   spdk_bdev_free_io(bdev_io);
   sem_post(request->sem);
@@ -37,7 +35,6 @@ static void complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg) {
 
 void readwrite(void *arg) {
   struct request *req = arg;
-  printf("READ_WRITE\n");
   struct spdk_io_channel *io_channel = req->io_channel;
   if (req->read) {
     spdk_bdev_read_blocks(req->bdev_desc, io_channel,
@@ -57,6 +54,9 @@ struct request *generate_request(struct bdev_context *context, bool is_read, siz
   request->nr = nr;
   request->free = false;
   request->buf = spdk_dma_zmalloc(nr * BLOCK_SIZE, context->buf_align, NULL);
+  if (!request->buf) {
+    printf("????\n");
+  }
   request->io_channel = context->io_channel;
   request->sem = &context->sem;
   if (!is_read) {
@@ -67,7 +67,6 @@ struct request *generate_request(struct bdev_context *context, bool is_read, siz
 
 
 void read_blocks(struct super_block *sb, char *blocks, int start, int nr) {
-  printf("Read\n");
   struct bdev_context *context = sb->fs->contexts[0];
   struct request *request = generate_request(context, true, start, nr, NULL);
   readwrite(request);
@@ -77,7 +76,6 @@ void read_blocks(struct super_block *sb, char *blocks, int start, int nr) {
 }
 
 void read_blocks_async(struct bdev_context *context, char *blocks, int start, int nr) {
-  printf("Read\n");
   struct request *request = generate_request(context, true, start, nr, NULL);
   readwrite(request);
   sem_wait(request->sem);
@@ -86,7 +84,6 @@ void read_blocks_async(struct bdev_context *context, char *blocks, int start, in
 }
 
 void write_blocks(struct super_block *sb, char *blocks, int start, int nr) {
-  printf("Write\n");
   struct bdev_context *context = sb->fs->contexts[0];
   struct request *request = generate_request(context, false, start, nr, blocks);
   readwrite(request);
@@ -95,7 +92,6 @@ void write_blocks(struct super_block *sb, char *blocks, int start, int nr) {
 }
 
 void write_blocks_async(struct bdev_context *context, char *blocks, int start, int nr) {
-  printf("Write ASYNC\n");
   context->counter++;
   struct request *request = generate_request(context, false, start, nr, blocks);
   request->free = true;

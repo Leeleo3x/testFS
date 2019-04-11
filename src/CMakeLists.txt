@@ -42,3 +42,6 @@ target_link_libraries(testfs-bdev-lib ${SPDKFlags})
 
 add_executable(testfs-bdev testfs.c)
 target_link_libraries(testfs-bdev testfs-bdev-lib)
+
+add_executable(testfs-perf perf_test.c)
+target_link_libraries(testfs-perf testfs-bdev-lib)

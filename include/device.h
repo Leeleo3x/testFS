@@ -27,7 +27,7 @@ struct bdev_context {
 };
 
 
-typedef void (* device_init_cb)(void *arg1);
+typedef void (* device_init_cb)(struct filesystem *fs);
 
 void send_request(uint32_t lcore, void (*fn)(void *), void *arg);
 void dev_init(const char *file, device_init_cb cb);

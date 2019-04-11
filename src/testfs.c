@@ -9,7 +9,6 @@
 #include "device.h"
 
 static int cmd_help(struct super_block*, struct context *c);
-static int cmd_mkfs(struct super_block*, struct context *c);
 static int cmd_quit(struct super_block*, struct context *c);
 static bool can_quit = false;
 
@@ -146,32 +145,6 @@ static int cmd_help(struct super_block *sb, struct context *c) {
   return 0;
 }
 
-static int cmd_mkfs(struct super_block *sb, struct context *c) {
-  int ret;
-  struct filesystem *fs = c->fs;
-  free(sb);
-  testfs_make_super_block(fs);
-  struct super_block *sb_tmp = fs->sb;
-  testfs_make_inode_freemap(sb_tmp);
-  testfs_make_block_freemap(sb_tmp);
-  testfs_make_csum_table(sb_tmp);
-  testfs_make_inode_blocks(sb_tmp);
-  testfs_flush_super_block(sb_tmp);
-  free(sb_tmp);
-  ret = testfs_init_super_block(fs, 0);
-  if (ret) {
-    EXIT("testfs_init_super_block");;
-  }
-  ret = testfs_make_root_dir(fs->sb);
-  if (ret) {
-    EXIT("testfs_make_root_dir");
-  }
-  testfs_flush_super_block(fs->sb);
-  testfs_init_super_block(fs, 0);
-  c->cur_dir = testfs_get_inode(fs->sb, 0);
-  return 0;
-}
-
 static int cmd_quit(struct super_block *sb, struct context *c) {
   printf("Bye!\n");
   can_quit = true;
@@ -290,8 +263,7 @@ static struct args *parse_arguments(int argc, char *const argv[]) {
 }
 
 
-void testfs_main(void *arg1) {
-  struct filesystem *fs = arg1;
+void testfs_main(struct filesystem *fs) {
   char *line = NULL;
   ssize_t nr;
   size_t line_size = 0;
@@ -305,16 +277,16 @@ void testfs_main(void *arg1) {
   // initializes the in memory structure sb with data that is
   // read from the disk. after successful execution, we have
   // sb initialized to dsuper_block read from disk.
-  // int ret = testfs_init_super_block(dev, 0, &sb);
-  // if (ret) {
-  //   EXIT("testfs_init_super_block");
-  // }
+  ret = testfs_init_super_block(fs, 0);
+  if (ret) {
+	EXIT("testfs_init_super_block");
+  }
   /* if the inode does not exist in the inode_hash_map (which
    is an inmemory map of all inode blocks, create a new inode by
    allocating memory to it. read the dinode from disk into that
    memory inode
    */
-  // c.cur_dir = testfs_get_inode(sb, 0); /* root dir */
+  c.cur_dir = testfs_get_inode(fs->sb, 0); /* root dir */
   for (; PROMPT, (nr = getline(&line, &line_size, stdin)) != EOF;) {
     char *name;
     char *args;
