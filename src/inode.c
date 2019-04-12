@@ -149,7 +149,7 @@ static int testfs_get_block_async(struct inode *in, char *block, int log_block_n
 
 
 static int testfs_allocate_block_async(struct inode *in, char *block, int log_block_nr) {
-  printf("allocate block %d\n", log_block_nr);
+//  printf("allocate block %d\n", log_block_nr);
   char indirect[BLOCK_SIZE];
   int phy_block_nr;
 
@@ -195,8 +195,10 @@ static int testfs_allocate_block_async(struct inode *in, char *block, int log_bl
   phy_block_nr = testfs_alloc_block_async(in->sb, block);
   if (phy_block_nr > 0) ((int *)indirect)[log_block_nr] = phy_block_nr;
   // write the indirect buffer to disk
-  write_blocks_async(in->sb->fs->contexts[INODE_LUN], indirect,
-					 in->in.i_indirect, 1);
+  write_blocks(in->sb, indirect,
+			   in->in.i_indirect, 1);
+//  write_blocks_async(in->sb->fs->contexts[INODE_LUN], indirect,
+//					 in->in.i_indirect, 1);
   return phy_block_nr;
 
 }
@@ -411,7 +413,8 @@ int testfs_write_data(struct inode *in, int start, char *buf, const int size) {
     int copy_size;
     int csum;
 
-    block_nr = testfs_allocate_block(in, block, block_nr);
+//    block_nr = testfs_allocate_block(in, block, block_nr);
+	block_nr = testfs_allocate_block_async(in, block, block_nr);
     if (block_nr < 0) {
       int orig_size = in->in.i_size;
       in->in.i_size = MAX(orig_size, start + buf_offset);
@@ -427,12 +430,13 @@ int testfs_write_data(struct inode *in, int start, char *buf, const int size) {
       copy_size = BLOCK_SIZE - b_offset;
     }
     memcpy(block + b_offset, buf + buf_offset, copy_size);
-    csum = testfs_calculate_csum(block, BLOCK_SIZE);
+//    csum = testfs_calculate_csum(block, BLOCK_SIZE);
     write_blocks(in->sb, block, block_nr, 1);
-    testfs_put_csum(in->sb, block_nr, csum);
+//    testfs_put_csum(in->sb, block_nr, csum);
     buf_offset += copy_size;
     b_offset = 0;
   } while (!done);
+  testfs_write_block_freemap_async(in->sb, 0);
   in->in.i_size = MAX(in->in.i_size, start + size);
   in->i_flags |= I_FLAGS_DIRTY;
   return 0;
@@ -442,7 +446,7 @@ int testfs_write_data_no_lock(struct inode *in, int start, char *buf, const int 
 }
 #else
 int testfs_write_data_no_lock(struct inode *in, int start, char *buf, const int size) {
-  printf("write data no lock %d %d\n", start, size);
+//  printf("write data no lock %d %d\n", start, size);
   char block[BLOCK_SIZE];
   int b_offset = start % BLOCK_SIZE; /* dst offset in block for copy */
   int buf_offset = 0;                /* src offset in buf for copy */
