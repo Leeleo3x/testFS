@@ -7,12 +7,13 @@
 #include "spdk/util.h"
 
 #include "device.h"
+#include "logging.h"
 
 
 static void
 __call_fn(void *arg1, void *arg2)
 {
-  printf("CALL_FN\n");
+  LOG("CALL_FN\n");
   void (*fn)(void *);
 
   fn = (void (*)(void *))arg1;
@@ -20,72 +21,81 @@ __call_fn(void *arg1, void *arg2)
 }
 
 void send_request(uint32_t lcore, void (*fn)(void *), void *arg) {
-  printf("SEND_REQ\n");
+  LOG("SEND_REQ\n");
   struct spdk_event *event;
 
   event = spdk_event_allocate(lcore, __call_fn, (void *)fn, arg);
   spdk_event_call(event);
 }
 
-struct testfs_init_context {
-  sem_t sem;
-  uint32_t lcore;
+struct reactor_init_context {
   struct filesystem *fs;
+  struct reactor_context *reactor;
 };
 
-
-static void init_bdev_context(void *arg) {
-  struct testfs_init_context *c = arg;
-  struct bdev_context *context = malloc(sizeof(struct bdev_context));
-  context->bdev = spdk_bdev_first();
-  printf("BLOCK_SIZE %d\n", spdk_bdev_get_block_size(context->bdev));
-  if (context->bdev == NULL) {
+static void init_bdev(struct filesystem *fs) {
+  fs->bdev_ctx.bdev = spdk_bdev_first();
+  if (fs->bdev_ctx.bdev == NULL) {
     SPDK_ERRLOG("Could not get bdev\n");
-    goto err;
+    spdk_app_stop(-1);
   }
-  context->bdev_name = spdk_bdev_get_name(context->bdev);
-  if (spdk_bdev_open(context->bdev, true, NULL, NULL, &context->bdev_desc)) {
-    SPDK_ERRLOG("Could not open bdev: %s\n", context->bdev_name);
-    goto err;
-  }
-  context->buf_align = spdk_bdev_get_buf_align(context->bdev);
-  context->io_channel = spdk_bdev_get_io_channel(context->bdev_desc);
-  context->counter = 0;
-  sem_init(&context->sem, 0, 0);
 
-  SPDK_NOTICELOG("Bdev: %s init finished\n", context->bdev_name);
-  c->fs->contexts[c->lcore] = context;
-  sem_post(&c->sem);
-  return;
-err:
-  free(context);
-  spdk_app_stop(-1);
-  sem_post(&c->sem);
+  LOG("BLOCK_SIZE %d\n", spdk_bdev_get_block_size(fs->bdev_ctx.bdev));
+  fs->bdev_ctx.bdev_name = spdk_bdev_get_name(fs->bdev_ctx.bdev);
+
+  fs->bdev_ctx.bdev_desc = NULL;
+  LOG("%p\n", fs->bdev_ctx.bdev_desc);
+  if (spdk_bdev_open(fs->bdev_ctx.bdev, true, NULL, NULL, &(fs->bdev_ctx.bdev_desc))) {
+    SPDK_ERRLOG("Could not open bdev: %s\n", fs->bdev_ctx.bdev_name);
+    spdk_app_stop(-1);
+  }
+  LOG("%p\n", fs->bdev_ctx.bdev_desc);
+
+  fs->bdev_ctx.buf_align = spdk_bdev_get_buf_align(fs->bdev_ctx.bdev);
+  SPDK_NOTICELOG("Bdev: %s init finished\n", fs->bdev_ctx.bdev_name);
+}
+
+static void acquire_io_channels(void *arg) {
+  struct reactor_init_context *ctx = arg;
+  LOG("name: %s\n", ctx->fs->bdev_ctx.bdev_name);
+  LOG("reactor: %p\n", ctx->fs->bdev_ctx.bdev_desc);
+  ctx->reactor->io_channel = spdk_bdev_get_io_channel(ctx->fs->bdev_ctx.bdev_desc);
+}
+
+static void init_reactors(struct filesystem *fs) {
+  struct reactor_init_context *ctx[NUM_REACTORS];
+
+  for (size_t i = 0; i < NUM_REACTORS; i++) {
+    // NOTE: We use the reactor context index to assign the lcore ID, but we
+    //       can change the mapping if needed
+    fs->reactors[i].lcore = i;
+
+    ctx[i] = malloc(sizeof(struct reactor_init_context));
+    ctx[i]->fs = fs;
+    ctx[i]->reactor = &(fs->reactors[i]);
+    send_request(fs->reactors[MAIN_REACTOR].lcore, acquire_io_channels, ctx[i]);
+  }
 }
 
 static void start(void *arg1, void *arg2) {
   struct filesystem *fs = malloc(sizeof(struct filesystem));
-  for (int i = 1; i <= NUM_OF_LUNS; i++) {
-    struct testfs_init_context *context = malloc(sizeof(struct testfs_init_context));
-    sem_init(&context->sem, 0, 0);
-    context->lcore = i - 1;
-    context->fs = fs;
-    send_request(i, init_bdev_context, context);
-    sem_wait(&context->sem);
-    free(context);
-  }
-  printf("START FINISHED\n");
-  device_init_cb cb = (device_init_cb)arg1;
-  send_request(0, cb, fs);
+  init_bdev(fs);
+  LOG("main name: %s\n", fs->bdev_ctx.bdev_name);
+  LOG("main reactor: %p\n", fs->bdev_ctx.bdev_desc);
+
+  init_reactors(fs);
+  // TODO: Fix this data race with more sophisticated callbacks
+
+  LOG("START FINISHED\n");
+  device_init_cb cb = (device_init_cb) arg1;
+  send_request(fs->reactors[MAIN_REACTOR].lcore, cb, fs);
 }
 
-
 void dev_stop(struct filesystem *fs) {
-  for (int i = 0; i < NUM_OF_LUNS; i++) {
-    spdk_put_io_channel(fs->contexts[i]->io_channel);
-    spdk_bdev_close(fs->contexts[i]->bdev_desc);
-    free(fs->contexts[i]);
+  for (int i = 0; i < NUM_REACTORS; i++) {
+    spdk_put_io_channel(fs->reactors[i].io_channel);
   }
+  spdk_bdev_close(fs->bdev_ctx.bdev_desc);
   spdk_app_stop(0);
 }
 

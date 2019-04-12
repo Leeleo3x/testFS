@@ -139,10 +139,10 @@ static int testfs_get_block_async(struct inode *in, char *block, int log_block_n
   log_block_nr -= NR_DIRECT_BLOCKS;
   if (log_block_nr >= NR_INDIRECT_BLOCKS) return -EFBIG;
   if (in->in.i_indirect == 0) return 0;
-  read_blocks_async(in->sb->fs->contexts[INODE_LUN], block, in->in.i_indirect, 1);
+  read_blocks_async(in->sb, METADATA_REACTOR, block, in->in.i_indirect, 1);
   phy_block_nr = ((int *)block)[log_block_nr];
   read_block:
-  if (phy_block_nr > 0) read_blocks_async(in->sb->fs->contexts[INODE_LUN], block, phy_block_nr, 1);
+  if (phy_block_nr > 0) read_blocks_async(in->sb, METADATA_REACTOR, block, phy_block_nr, 1);
   return phy_block_nr;
 }
 
@@ -187,14 +187,14 @@ static int testfs_allocate_block_async(struct inode *in, char *block, int log_bl
   } else {
 	// if we already have an indirect block, then we read the
 	// indirect block into the indirect buffer.
-	read_blocks_async(in->sb->fs->contexts[INODE_LUN], indirect,
+	read_blocks_async(in->sb, METADATA_REACTOR, indirect,
 					  in->in.i_indirect, 1);
   }
   // allocate a new block and make logical to physical block mapping
   phy_block_nr = testfs_alloc_block_async(in->sb, block);
   if (phy_block_nr > 0) ((int *)indirect)[log_block_nr] = phy_block_nr;
   // write the indirect buffer to disk
-  write_blocks_async(in->sb->fs->contexts[INODE_LUN], indirect,
+  write_blocks_async(in->sb, METADATA_REACTOR, indirect,
 					 in->in.i_indirect, 1);
   return phy_block_nr;
 
@@ -425,13 +425,14 @@ int testfs_write_data(struct inode *in, int start, char *buf, const int size) {
 	}
 	memcpy(block + b_offset, buf + buf_offset, copy_size);
 	csum = testfs_calculate_csum(block, BLOCK_SIZE);
-	write_blocks_async(in->sb->fs->contexts[DATA_LUN], block, block_nr, 1);
+	write_blocks_async(in->sb, DATA_REACTOR, block, block_nr, 1);
 	testfs_put_csum_async(in->sb, block_nr, csum);
 	buf_offset += copy_size;
 	b_offset = 0;
   } while (!done);
-  wait_context(in->sb->fs->contexts[INODE_LUN]);
-  wait_context(in->sb->fs->contexts[DATA_LUN]);
+  // TODO: Fix handling of async requests
+  //wait_context(in->sb->fs->contexts[INODE_LUN]);
+  //wait_context(in->sb->fs->contexts[DATA_LUN]);
   in->in.i_size = MAX(in->in.i_size, start + size);
   in->i_flags |= I_FLAGS_DIRTY;
   return 0;

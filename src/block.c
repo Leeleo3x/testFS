@@ -46,7 +46,7 @@ void readwrite(void *arg) {
   }
 }
 
-struct request *generate_request(struct bdev_context *context, bool is_read, size_t start, size_t nr, char* blocks) {
+struct request *generate_request(struct bdev_context *context, struct spdk_io_channel *io_channel, bool is_read, size_t start, size_t nr, char* blocks) {
   struct request *request= malloc(sizeof(struct request));
   request->bdev_desc = context->bdev_desc;
   request->read = is_read;
@@ -57,7 +57,7 @@ struct request *generate_request(struct bdev_context *context, bool is_read, siz
   if (!request->buf) {
     printf("????\n");
   }
-  request->io_channel = context->io_channel;
+  request->io_channel = io_channel;
   request->sem = &context->sem;
   if (!is_read) {
     memcpy(request->buf, blocks, nr * BLOCK_SIZE);
@@ -67,16 +67,20 @@ struct request *generate_request(struct bdev_context *context, bool is_read, siz
 
 
 void read_blocks(struct super_block *sb, char *blocks, int start, int nr) {
-  struct bdev_context *context = sb->fs->contexts[0];
-  struct request *request = generate_request(context, true, start, nr, NULL);
+  struct bdev_context *bdev_ctx = &(sb->fs->bdev_ctx);
+  struct spdk_io_channel *io_channel = sb->fs->reactors[MAIN_REACTOR].io_channel;
+  struct request *request = generate_request(bdev_ctx, io_channel, true, start, nr, NULL);
   readwrite(request);
   sem_wait(request->sem);
   memcpy(blocks, request->buf, nr * BLOCK_SIZE);
   free_request(request);
 }
 
-void read_blocks_async(struct bdev_context *context, char *blocks, int start, int nr) {
-  struct request *request = generate_request(context, true, start, nr, NULL);
+void read_blocks_async(struct super_block *sb, uint32_t reactor_id, char *blocks, int start, int nr) {
+  // TODO: WIP - this needs to be scheduled on a different thread
+  struct bdev_context *bdev_ctx = &(sb->fs->bdev_ctx);
+  struct spdk_io_channel *io_channel = sb->fs->reactors[reactor_id].io_channel;
+  struct request *request = generate_request(bdev_ctx, io_channel, true, start, nr, NULL);
   readwrite(request);
   sem_wait(request->sem);
   memcpy(blocks, request->buf, nr * BLOCK_SIZE);
@@ -84,16 +88,20 @@ void read_blocks_async(struct bdev_context *context, char *blocks, int start, in
 }
 
 void write_blocks(struct super_block *sb, char *blocks, int start, int nr) {
-  struct bdev_context *context = sb->fs->contexts[0];
-  struct request *request = generate_request(context, false, start, nr, blocks);
+  struct bdev_context *bdev_ctx = &(sb->fs->bdev_ctx);
+  struct spdk_io_channel *io_channel = sb->fs->reactors[MAIN_REACTOR].io_channel;
+  struct request *request = generate_request(bdev_ctx, io_channel, false, start, nr, blocks);
   readwrite(request);
   sem_wait(request->sem);
   free_request(request);
 }
 
-void write_blocks_async(struct bdev_context *context, char *blocks, int start, int nr) {
-  context->counter++;
-  struct request *request = generate_request(context, false, start, nr, blocks);
+void write_blocks_async(struct super_block *sb, uint32_t reactor_id, char *blocks, int start, int nr) {
+  // TODO: WIP - this needs to be scheduled on a different thread
+  struct bdev_context *bdev_ctx = &(sb->fs->bdev_ctx);
+  struct spdk_io_channel *io_channel = sb->fs->reactors[reactor_id].io_channel;
+  bdev_ctx->counter++;
+  struct request *request = generate_request(bdev_ctx, io_channel, false, start, nr, blocks);
   request->free = true;
   readwrite(request);
 }

@@ -18,10 +18,10 @@ struct request {
 
 
 void write_blocks(struct super_block *sb, char *blocks, int start, int nr);
-void write_blocks_async(struct bdev_context *sb, char *blocks, int start, int nr);
+void write_blocks_async(struct super_block *sb, uint32_t reactor_id, char *blocks, int start, int nr);
 void read_blocks(struct super_block *sb, char *blocks, int start, int nr);
-void read_blocks_async(struct bdev_context *sb, char *blocks, int start, int nr);
+void read_blocks_async(struct super_block *sb, uint32_t reactor_id, char *blocks, int start, int nr);
 void zero_blocks(struct super_block *sb, int start, int nr);
-struct request *generate_request(struct bdev_context *context, bool is_read, size_t start, size_t nr, char* blocks);
+struct request *generate_request(struct bdev_context *context, struct spdk_io_channel *io_channel, bool is_read, size_t start, size_t nr, char* blocks);
 void readwrite(void *arg);
 #endif /* _BLOCK_H */

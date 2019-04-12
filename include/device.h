@@ -4,28 +4,33 @@
 #include <semaphore.h>
 #include <stdint.h>
 
+#define NUM_REACTORS 3
 
-
-#define NUM_OF_LUNS 2
-#define INODE_LUN 0
-#define DATA_LUN 1
-
-struct filesystem {
-  struct super_block *sb;
-  struct bdev_context *contexts[NUM_OF_LUNS];
-};
+#define MAIN_REACTOR 0
+#define METADATA_REACTOR 1
+#define DATA_REACTOR 2
 
 struct bdev_context {
   struct spdk_bdev *bdev;
   struct spdk_bdev_desc *bdev_desc;
-  struct spdk_io_channel *io_channel;
-  sem_t sem;
   const char *bdev_name;
-  struct spdk_bdev_io_wait_entry *bdev_io_wait;
   size_t buf_align;
+
+  sem_t sem;
+  struct spdk_bdev_io_wait_entry *bdev_io_wait;
   int counter;
 };
 
+struct reactor_context {
+  uint32_t lcore;
+  struct spdk_io_channel *io_channel;
+};
+
+struct filesystem {
+  struct super_block *sb;
+  struct bdev_context bdev_ctx;
+  struct reactor_context reactors[NUM_REACTORS];
+};
 
 typedef void (* device_init_cb)(struct filesystem *fs);
 
