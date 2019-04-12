@@ -76,7 +76,7 @@ static void start(void *arg1, void *arg2) {
   }
   printf("START FINISHED\n");
   device_init_cb cb = (device_init_cb)arg1;
-  send_request(0, cb, fs);
+  send_request(0, (void *)cb, fs);
 }
 
 
@@ -101,7 +101,18 @@ void dev_init(const char *f, device_init_cb cb) {
 
 void wait_context(struct bdev_context *context) {
   while (context->counter) {
-    context->counter--;
-    sem_wait(&context->sem);
+	context->counter--;
+	sem_wait(&context->sem);
+  }
+}
+
+void wait_all_contexts(struct filesystem *fs) {
+  for (int i = 0; i < NUM_OF_LUNS; i++) {
+    struct bdev_context *context = fs->contexts[i];
+	while (context->counter) {
+	  context->counter--;
+	  sem_wait(&context->sem);
+	}
+
   }
 }

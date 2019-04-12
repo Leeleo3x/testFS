@@ -24,13 +24,10 @@ void free_request(struct request *request) {
 static void complete(struct spdk_bdev_io *bdev_io, bool success, void *cb_arg) {
   struct request *request = cb_arg;
   spdk_bdev_free_io(bdev_io);
-  sem_post(request->sem);
   if (request->free) {
     free_request(request);
   }
-//  if (!request->read) {
-//    free(request);
-//  }
+  sem_post(request->sem);
 }
 
 void readwrite(void *arg) {
@@ -54,9 +51,6 @@ struct request *generate_request(struct bdev_context *context, bool is_read, siz
   request->nr = nr;
   request->free = false;
   request->buf = spdk_dma_zmalloc(nr * BLOCK_SIZE, context->buf_align, NULL);
-  if (!request->buf) {
-    printf("????\n");
-  }
   request->io_channel = context->io_channel;
   request->sem = &context->sem;
   if (!is_read) {
@@ -70,7 +64,7 @@ void read_blocks(struct super_block *sb, char *blocks, int start, int nr) {
   struct bdev_context *context = sb->fs->contexts[0];
   struct request *request = generate_request(context, true, start, nr, NULL);
   readwrite(request);
-  sem_wait(request->sem);
+  wait_context(context);
   memcpy(blocks, request->buf, nr * BLOCK_SIZE);
   free_request(request);
 }
@@ -78,7 +72,7 @@ void read_blocks(struct super_block *sb, char *blocks, int start, int nr) {
 void read_blocks_async(struct bdev_context *context, char *blocks, int start, int nr) {
   struct request *request = generate_request(context, true, start, nr, NULL);
   readwrite(request);
-  sem_wait(request->sem);
+  wait_context(context);
   memcpy(blocks, request->buf, nr * BLOCK_SIZE);
   free_request(request);
 }
@@ -87,8 +81,8 @@ void write_blocks(struct super_block *sb, char *blocks, int start, int nr) {
   struct bdev_context *context = sb->fs->contexts[0];
   struct request *request = generate_request(context, false, start, nr, blocks);
   readwrite(request);
-  sem_wait(request->sem);
-  free_request(request);
+  request->free = true;
+  wait_context(context);
 }
 
 void write_blocks_async(struct bdev_context *context, char *blocks, int start, int nr) {

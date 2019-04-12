@@ -12,6 +12,8 @@ set(testFSCommon
   inode.c
   super.c
   tx.c
+  device.c
+  block.c
 )
 
 set(SPDKFlags 
@@ -32,8 +34,6 @@ set(SPDKFlags
 
 
 add_library(testfs-bdev-lib
-        device.c
-        block.c
   ${testFSCommon}
 )
 add_dependencies(testfs-bdev-lib LibSPDK)
@@ -45,3 +45,12 @@ target_link_libraries(testfs-bdev testfs-bdev-lib)
 
 add_executable(testfs-perf perf_test.c)
 target_link_libraries(testfs-perf testfs-bdev-lib)
+
+add_library(testfs-bdev-baseline-lib
+        ${testFSCommon}
+        )
+add_dependencies(testfs-bdev-baseline-lib LibSPDK)
+set_target_properties(testfs-bdev-baseline-lib PROPERTIES COMPILE_DEFINITIONS "SYNC")
+target_link_libraries(testfs-bdev-baseline-lib ${SPDKFlags})
+add_executable(testfs-perf-baseline perf_test.c)
+target_link_libraries(testfs-perf-baseline testfs-bdev-baseline-lib)

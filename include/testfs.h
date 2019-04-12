@@ -9,7 +9,7 @@
 #define SUPER_BLOCK_SIZE 1   /* start 0x0000 */
 #define INODE_FREEMAP_SIZE 1 /* start 0x0040 */
 #define BLOCK_FREEMAP_SIZE 2 /* start 0x0080 */
-#define CSUM_TABLE_SIZE 60   /* start 0x0100 */
+#define CSUM_TABLE_SIZE 80   /* start 0x0100 */
 #define NR_INODE_BLOCKS 128  /* start 0x1000 */
 #define NR_DATA_BLOCKS 512   /* start 0x3000 */
 
