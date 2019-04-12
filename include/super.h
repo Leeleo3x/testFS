@@ -42,4 +42,5 @@ int testfs_alloc_block(struct super_block *sb, char *block);
 int testfs_free_block(struct super_block *sb, int block_nr);
 
 int testfs_alloc_block_async(struct super_block *sb, char *block);
+void testfs_write_block_freemap_async(struct super_block *sb, int block_nr);
 #endif /* _SUPER_H */

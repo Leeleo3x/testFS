@@ -155,15 +155,14 @@ static void testfs_write_inode_freemap(struct super_block *sb, int inode_nr) {
                1);
 }
 
-static void testfs_write_block_freemap_async(struct super_block *sb, int block_nr) {
+void testfs_write_block_freemap_async(struct super_block *sb, int block_nr) {
   char *freemap;
   int nr;
 
   assert(sb->block_freemap);
   freemap = bitmap_getdata(sb->block_freemap);
-  nr = block_nr / (BLOCK_SIZE * BITS_PER_WORD);
-  write_blocks_async(sb->fs->contexts[INODE_LUN], freemap + (nr * BLOCK_SIZE),
-					 sb->sb.block_freemap_start + nr, 1);
+  write_blocks(sb, freemap,
+			   sb->sb.block_freemap_start, BLOCK_FREEMAP_SIZE);
 }
 
 static void testfs_write_block_freemap(struct super_block *sb, int block_nr) {
@@ -185,7 +184,6 @@ static int testfs_get_block_freemap_async(struct super_block *sb) {
   assert(sb->block_freemap);
   ret = bitmap_alloc(sb->block_freemap, &index);
   if (ret < 0) return ret;
-  testfs_write_block_freemap_async(sb, index);
   return index;
 }
 

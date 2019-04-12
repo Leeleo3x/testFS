@@ -61,10 +61,10 @@ struct request *generate_request(struct bdev_context *context, bool is_read, siz
 
 
 void read_blocks(struct super_block *sb, char *blocks, int start, int nr) {
-  struct bdev_context *context = sb->fs->contexts[0];
+  struct bdev_context *context = sb->fs->contexts[SYNC_LUN];
   struct request *request = generate_request(context, true, start, nr, NULL);
   readwrite(request);
-  wait_context(context);
+  sem_wait(&context->sem);
   memcpy(blocks, request->buf, nr * BLOCK_SIZE);
   free_request(request);
 }
@@ -72,20 +72,26 @@ void read_blocks(struct super_block *sb, char *blocks, int start, int nr) {
 void read_blocks_async(struct bdev_context *context, char *blocks, int start, int nr) {
   struct request *request = generate_request(context, true, start, nr, NULL);
   readwrite(request);
-  wait_context(context);
+  sem_wait(&context->sem);
   memcpy(blocks, request->buf, nr * BLOCK_SIZE);
   free_request(request);
 }
 
 void write_blocks(struct super_block *sb, char *blocks, int start, int nr) {
-  struct bdev_context *context = sb->fs->contexts[0];
+  struct bdev_context *context = sb->fs->contexts[SYNC_LUN];
   struct request *request = generate_request(context, false, start, nr, blocks);
   readwrite(request);
   request->free = true;
-  wait_context(context);
+  sem_wait(&context->sem);
 }
 
 void write_blocks_async(struct bdev_context *context, char *blocks, int start, int nr) {
+//  if (context->fs->contexts[INODE_LUN] == context) {
+//    printf("inode: %d %d\n", start, nr);
+//  }
+//  else {
+//	printf("data: %d %d\n", start, nr);
+//  }
   context->counter++;
   struct request *request = generate_request(context, false, start, nr, blocks);
   request->free = true;

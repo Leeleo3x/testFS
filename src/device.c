@@ -51,6 +51,7 @@ static void init_bdev_context(void *arg) {
   context->buf_align = spdk_bdev_get_buf_align(context->bdev);
   context->io_channel = spdk_bdev_get_io_channel(context->bdev_desc);
   context->counter = 0;
+  context->fs = c->fs;
   sem_init(&context->sem, 0, 0);
 
   SPDK_NOTICELOG("Bdev: %s init finished\n", context->bdev_name);
@@ -95,7 +96,7 @@ void dev_init(const char *f, device_init_cb cb) {
   spdk_app_opts_init(&opts);
   opts.name = "hello_world";
   opts.config_file = "config.conf";
-  opts.reactor_mask = "0x7";
+  opts.reactor_mask = "0xff";
   spdk_app_start(&opts, start, cb);
 }
 

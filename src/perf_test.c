@@ -20,6 +20,7 @@ char *read_file(const char *file, size_t *size) {
 }
 
 int test_write(struct super_block *sb, struct context *c, char *filename, char *buf, size_t size) {
+  int ret = testfs_create_file_or_dir(sb, c->cur_dir, I_FILE, filename);
   int inode_nr = testfs_dir_name_to_inode_nr(c->cur_dir, filename);
   if (inode_nr < 0) return inode_nr;
   struct inode *in = testfs_get_inode(sb, inode_nr);
@@ -34,7 +35,7 @@ int test_write(struct super_block *sb, struct context *c, char *filename, char *
 
 
 #define N 40
-#define M 50
+#define M 40
 
 void perf_main(struct filesystem *fs) {
   struct context *c = malloc(sizeof(struct context));
@@ -56,15 +57,16 @@ void perf_main(struct filesystem *fs) {
 	struct inode *dir_inode = testfs_get_inode(fs->sb, inode_nr);
 	testfs_put_inode(c->cur_dir);
 	c->cur_dir = dir_inode;
-	int ret = testfs_create_file_or_dir(fs->sb, c->cur_dir, I_FILE, "????");
     for (int j = 0; j < M; j++) {
 	  sprintf(file, "%d", j);
-	  test_write(fs->sb, c, "????", data, size);
+	  test_write(fs->sb, c, file, data, size);
     }
 	dir_inode = testfs_get_inode(fs->sb, 0);
 	testfs_put_inode(c->cur_dir);
 	c->cur_dir = dir_inode;
   }
+  wait_context(fs->contexts[INODE_LUN]);
+  wait_context(fs->contexts[DATA_LUN]);
   gettimeofday(&t1, NULL);
   printf("Did %u calls in %.2g seconds\n", N * M, t1.tv_sec - t0.tv_sec + 1E-6 * (t1.tv_usec - t0.tv_usec));
   dev_stop(fs);

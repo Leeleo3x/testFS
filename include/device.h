@@ -6,9 +6,10 @@
 
 
 
-#define NUM_OF_LUNS 2
+#define NUM_OF_LUNS 7
 #define INODE_LUN 0
 #define DATA_LUN 1
+#define SYNC_LUN 2
 
 struct filesystem {
   struct super_block *sb;
@@ -19,6 +20,7 @@ struct bdev_context {
   struct spdk_bdev *bdev;
   struct spdk_bdev_desc *bdev_desc;
   struct spdk_io_channel *io_channel;
+  struct filesystem *fs;
   sem_t sem;
   const char *bdev_name;
   struct spdk_bdev_io_wait_entry *bdev_io_wait;
