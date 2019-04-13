@@ -162,8 +162,8 @@ static void testfs_write_block_freemap_async(struct super_block *sb, int block_n
   assert(sb->block_freemap);
   freemap = bitmap_getdata(sb->block_freemap);
   nr = block_nr / (BLOCK_SIZE * BITS_PER_WORD);
-  write_blocks_async(sb, METADATA_REACTOR, freemap + (nr * BLOCK_SIZE),
-					 sb->sb.block_freemap_start + nr, 1);
+  // FIXME: Async
+  write_blocks(sb, freemap + (nr * BLOCK_SIZE), sb->sb.block_freemap_start + nr, 1);
 }
 
 static void testfs_write_block_freemap(struct super_block *sb, int block_nr) {

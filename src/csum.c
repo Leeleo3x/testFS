@@ -28,9 +28,8 @@ static void testfs_write_csum_asnyc(struct super_block *sb, int block_nr) {
   char *table = (char *)sb->csum_table;
 
   assert(table);
-  write_blocks_async(sb, METADATA_REACTOR,
-					 table + (nr * BLOCK_SIZE),
-					 sb->sb.csum_table_start + nr, 1);
+  // FIXME: Async
+  write_blocks(sb, table + (nr * BLOCK_SIZE), sb->sb.csum_table_start + nr, 1);
 }
 
 void testfs_put_csum_async(struct super_block *sb, int phy_block_nr, int csum) {
