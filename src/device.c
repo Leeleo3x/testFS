@@ -28,9 +28,17 @@ void send_request(uint32_t lcore, void (*fn)(void *), void *arg) {
   spdk_event_call(event);
 }
 
+
+struct init_completed_context {
+  struct filesystem *fs;
+  device_init_cb app_start;
+  size_t outstanding_requests;
+};
+
 struct reactor_init_context {
   struct filesystem *fs;
   struct reactor_context *reactor;
+  struct init_completed_context *completed_ctx;
 };
 
 static void init_bdev(struct filesystem *fs) {
@@ -44,25 +52,37 @@ static void init_bdev(struct filesystem *fs) {
   fs->bdev_ctx.bdev_name = spdk_bdev_get_name(fs->bdev_ctx.bdev);
 
   fs->bdev_ctx.bdev_desc = NULL;
-  LOG("%p\n", fs->bdev_ctx.bdev_desc);
   if (spdk_bdev_open(fs->bdev_ctx.bdev, true, NULL, NULL, &(fs->bdev_ctx.bdev_desc))) {
     SPDK_ERRLOG("Could not open bdev: %s\n", fs->bdev_ctx.bdev_name);
     spdk_app_stop(-1);
   }
-  LOG("%p\n", fs->bdev_ctx.bdev_desc);
 
   fs->bdev_ctx.buf_align = spdk_bdev_get_buf_align(fs->bdev_ctx.bdev);
   SPDK_NOTICELOG("Bdev: %s init finished\n", fs->bdev_ctx.bdev_name);
 }
 
-static void acquire_io_channels(void *arg) {
-  struct reactor_init_context *ctx = arg;
-  LOG("name: %s\n", ctx->fs->bdev_ctx.bdev_name);
-  LOG("reactor: %p\n", ctx->fs->bdev_ctx.bdev_desc);
-  ctx->reactor->io_channel = spdk_bdev_get_io_channel(ctx->fs->bdev_ctx.bdev_desc);
+static void init_reactors_complete(void *arg) {
+  struct init_completed_context *ctx = arg;
+  ctx->outstanding_requests -= 1;
+  if (ctx->outstanding_requests != 0) {
+    return;
+  }
+
+  LOG("START FINISHED\n");
+  // NOTE: This function currently already runs on the main reactor, but this
+  //       will ensure the REPL runs on a clean stack.
+  send_request(ctx->fs->reactors[MAIN_REACTOR].lcore, ctx->app_start, ctx->fs);
+  free(ctx);
 }
 
-static void init_reactors(struct filesystem *fs) {
+static void acquire_io_channels(void *arg) {
+  struct reactor_init_context *ctx = arg;
+  ctx->reactor->io_channel = spdk_bdev_get_io_channel(ctx->fs->bdev_ctx.bdev_desc);
+  send_request(ctx->fs->reactors[MAIN_REACTOR].lcore, init_reactors_complete, ctx->completed_ctx);
+  free(ctx);
+}
+
+static void init_reactors(struct filesystem *fs, struct init_completed_context *completed_ctx) {
   struct reactor_init_context *ctx[NUM_REACTORS];
 
   for (size_t i = 0; i < NUM_REACTORS; i++) {
@@ -73,22 +93,19 @@ static void init_reactors(struct filesystem *fs) {
     ctx[i] = malloc(sizeof(struct reactor_init_context));
     ctx[i]->fs = fs;
     ctx[i]->reactor = &(fs->reactors[i]);
+    ctx[i]->completed_ctx = completed_ctx;
     send_request(fs->reactors[MAIN_REACTOR].lcore, acquire_io_channels, ctx[i]);
   }
 }
 
 static void start(void *arg1, void *arg2) {
   struct filesystem *fs = malloc(sizeof(struct filesystem));
+  struct init_completed_context *completed_ctx = malloc(sizeof(struct init_completed_context));
+  completed_ctx->fs = fs;
+  completed_ctx->app_start = (device_init_cb) arg1;
+  completed_ctx->outstanding_requests = NUM_REACTORS;
   init_bdev(fs);
-  LOG("main name: %s\n", fs->bdev_ctx.bdev_name);
-  LOG("main reactor: %p\n", fs->bdev_ctx.bdev_desc);
-
-  init_reactors(fs);
-  // TODO: Fix this data race with more sophisticated callbacks
-
-  LOG("START FINISHED\n");
-  device_init_cb cb = (device_init_cb) arg1;
-  send_request(fs->reactors[MAIN_REACTOR].lcore, cb, fs);
+  init_reactors(fs, completed_ctx);
 }
 
 void dev_stop(struct filesystem *fs) {
