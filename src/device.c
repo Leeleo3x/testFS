@@ -6,7 +6,6 @@
 #include "spdk/env.h"
 #include "spdk/util.h"
 
-#include "async.h"
 #include "device.h"
 #include "logging.h"
 

@@ -20,3 +20,9 @@ void send_request(uint32_t lcore, void (*fn)(void *), void *arg) {
   event = spdk_event_allocate(lcore, __call_fn, (void *)fn, arg);
   spdk_event_call(event);
 }
+
+void spin_wait(struct future *f) {
+  for (size_t i = 0; i < NUM_REACTORS; i++) {
+    while (f->counts[i] != f->expected_counts[i]) {}
+  }
+}

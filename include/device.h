@@ -3,12 +3,7 @@
 
 #include <semaphore.h>
 #include <stdint.h>
-
-#define NUM_REACTORS 3
-
-#define MAIN_REACTOR 0
-#define METADATA_REACTOR 1
-#define DATA_REACTOR 2
+#include "async.h"
 
 struct bdev_context {
   struct spdk_bdev *bdev;
