@@ -15,5 +15,6 @@ struct future {
 
 void send_request(uint32_t lcore, void (*fn)(void *), void *arg);
 void spin_wait(struct future *f);
+void future_init(struct future *f);
 
 #endif

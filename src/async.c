@@ -26,3 +26,10 @@ void spin_wait(struct future *f) {
     while (f->counts[i] != f->expected_counts[i]) {}
   }
 }
+
+void future_init(struct future *f) {
+  for (size_t i = 0; i < NUM_REACTORS; i++) {
+    f->counts[i] = 0;
+    f->expected_counts[i] = 0;
+  }
+}
