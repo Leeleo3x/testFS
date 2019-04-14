@@ -4,6 +4,7 @@
 #include "tx.h"
 #include "stdio.h"
 #include "stdint.h"
+#include "async.h"
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
@@ -143,8 +144,11 @@ int cmd_write(struct super_block *sb, struct context *c) {
     goto out;
   }
   size = strlen(content);
+  struct future f;
+  future_init(&f);
   testfs_tx_start(sb, TX_WRITE);
-  ret = testfs_write_data(in, 0, content, size);
+  ret = testfs_write_data_async(in, &f, 0, content, size);
+  spin_wait(&f);
   if (ret >= 0) {
     testfs_truncate_data(in, size);
   }

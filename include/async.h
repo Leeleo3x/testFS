@@ -2,6 +2,7 @@
 #define __ASYNC_H__
 
 #include <stdlib.h>
+#include <stdint.h>
 
 #define NUM_REACTORS 3
 

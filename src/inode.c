@@ -173,7 +173,8 @@ static int testfs_allocate_block_async(
   assert(log_block_nr >= 0);
   // this reads log_block_nr inside block buffer, and returns
   // the phy_block_nr corresponding to the block.
-  phy_block_nr = testfs_get_block_async(in, f, block, log_block_nr);
+  phy_block_nr =
+    testfs_get_block_async(in, DATA_REACTOR, f, block, log_block_nr);
   // successfully obtained a physical block.
   if (phy_block_nr != 0) return phy_block_nr;
   // otherwise we will need to allocate a new physical block
@@ -205,7 +206,7 @@ static int testfs_allocate_block_async(
     phy_block_nr =
       testfs_alloc_block_async(in->sb, &indirect_block_f, indirect);
     if (phy_block_nr < 0) {
-      spin_wait(&indirect_block);
+      spin_wait(&indirect_block_f);
       return phy_block_nr;
     }
     in->in.i_indirect = phy_block_nr;
@@ -502,9 +503,11 @@ int testfs_write_data_async(
     }
     spin_wait(&block_metadata_f);
     memcpy(block + b_offset, buf + buf_offset, copy_size);
+    write_blocks_async(in->sb, DATA_REACTOR, f, block, block_nr, 1);
     csum = testfs_calculate_csum(block, BLOCK_SIZE);
-    write_blocks(in->sb, block, block_nr, 1);
-    testfs_put_csum(in->sb, block_nr, csum);
+    // NOTE: It's safe to write the checksum asynchronously because it is first
+    //       stored in memory and writes to I/O channels are processed FIFO.
+    testfs_put_csum_async(in->sb, f, block_nr, csum);
     buf_offset += copy_size;
     b_offset = 0;
   } while (!done);

@@ -3,6 +3,7 @@
 
 #include "tx.h"
 #include "device.h"
+#include "async.h"
 
 struct dsuper_block {
   int inode_freemap_start;
@@ -41,5 +42,6 @@ void testfs_put_inode_freemap(struct super_block *sb, int inode_nr);
 int testfs_alloc_block(struct super_block *sb, char *block);
 int testfs_free_block(struct super_block *sb, int block_nr);
 
-int testfs_alloc_block_async(struct super_block *sb, char *block);
+int testfs_alloc_block_async(
+  struct super_block *sb, struct future *f, char *block);
 #endif /* _SUPER_H */
