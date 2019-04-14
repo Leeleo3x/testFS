@@ -168,10 +168,10 @@ static void handle_command(struct super_block *sb, struct context *c,
 
   for (i = 0; cmdtable[i].name; i++) {
     if (strcmp(name, cmdtable[i].name) == 0) {
-//      if (!can_execute_command(c, name)) {
-//        printf(FS_DOES_NOT_EXIST_ERROR, name);
-//        return;
-//      }
+      if (!can_execute_command(c, name)) {
+        printf(FS_DOES_NOT_EXIST_ERROR, name);
+        return;
+      }
 
       char *token = args;
       assert(cmdtable[i].func);
@@ -309,14 +309,8 @@ void testfs_main(struct filesystem *fs) {
   // inode count has become 0.
   testfs_put_inode(c.cur_dir);
 
-
   if (file_system_exists) {
     testfs_close_super_block(sb);
-  } else {
-    // If the file system was never created, skip the flush of the super block
-    // but make sure that the underlying device is still closed.
-    free(fs);
-    free(sb);
   }
   dev_stop(fs);
 }
