@@ -1,7 +1,6 @@
 #ifndef _DEVICE_H
 #define _DEVICE_H
 
-#include <semaphore.h>
 #include <stdint.h>
 #include "async.h"
 
@@ -10,10 +9,6 @@ struct bdev_context {
   struct spdk_bdev_desc *bdev_desc;
   const char *bdev_name;
   size_t buf_align;
-
-  sem_t sem;
-  struct spdk_bdev_io_wait_entry *bdev_io_wait;
-  int counter;
 };
 
 struct reactor_context {
@@ -31,6 +26,5 @@ typedef void (* device_init_cb)(struct filesystem *fs);
 
 void dev_init(const char *file, device_init_cb cb);
 void dev_stop(struct filesystem *);
-void wait_context(struct bdev_context*);
 
 #endif

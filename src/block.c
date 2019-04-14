@@ -93,7 +93,8 @@ void fill_request_common(
 
   request->start = start;
   request->nr = nr;
-  request->buf = spdk_dma_zmalloc(nr * BLOCK_SIZE, sb->fs->bdev_ctx.buf_align, NULL);
+  request->buf =
+    spdk_dma_zmalloc(nr * BLOCK_SIZE, sb->fs->bdev_ctx.buf_align, NULL);
   if (!request->buf) {
     LOG("spdk_dma_zmalloc() failed!\n");
   }

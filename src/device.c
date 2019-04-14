@@ -1,4 +1,3 @@
-#include <device.h>
 #include "spdk/thread.h"
 #include "spdk/event.h"
 #include "spdk/log.h"
@@ -32,7 +31,8 @@ static void init_bdev(struct filesystem *fs) {
   fs->bdev_ctx.bdev_name = spdk_bdev_get_name(fs->bdev_ctx.bdev);
 
   fs->bdev_ctx.bdev_desc = NULL;
-  if (spdk_bdev_open(fs->bdev_ctx.bdev, true, NULL, NULL, &(fs->bdev_ctx.bdev_desc))) {
+  if (spdk_bdev_open(
+        fs->bdev_ctx.bdev, true, NULL, NULL, &(fs->bdev_ctx.bdev_desc))) {
     SPDK_ERRLOG("Could not open bdev: %s\n", fs->bdev_ctx.bdev_name);
     spdk_app_stop(-1);
   }
@@ -57,7 +57,8 @@ static void init_reactors_complete(void *arg) {
 
 static void acquire_io_channels(void *arg) {
   struct reactor_init_context *ctx = arg;
-  ctx->reactor->io_channel = spdk_bdev_get_io_channel(ctx->fs->bdev_ctx.bdev_desc);
+  ctx->reactor->io_channel =
+    spdk_bdev_get_io_channel(ctx->fs->bdev_ctx.bdev_desc);
   LOG(
     "Reactor %d, io_channel %p, thread %p\n",
     ctx->reactor->lcore,
@@ -72,7 +73,8 @@ static void acquire_io_channels(void *arg) {
   free(ctx);
 }
 
-static void init_reactors(struct filesystem *fs, struct init_completed_context *completed_ctx) {
+static void init_reactors(
+    struct filesystem *fs, struct init_completed_context *completed_ctx) {
   struct reactor_init_context *ctx[NUM_REACTORS];
 
   for (size_t i = 0; i < NUM_REACTORS; i++) {
@@ -90,7 +92,8 @@ static void init_reactors(struct filesystem *fs, struct init_completed_context *
 
 static void start(void *arg1, void *arg2) {
   struct filesystem *fs = malloc(sizeof(struct filesystem));
-  struct init_completed_context *completed_ctx = malloc(sizeof(struct init_completed_context));
+  struct init_completed_context *completed_ctx =
+    malloc(sizeof(struct init_completed_context));
   completed_ctx->fs = fs;
   completed_ctx->app_start = (device_init_cb) arg1;
   completed_ctx->outstanding_requests = NUM_REACTORS;
@@ -114,11 +117,4 @@ void dev_init(const char *f, device_init_cb cb) {
   opts.config_file = "config.conf";
   opts.reactor_mask = "0x7";
   spdk_app_start(&opts, start, cb);
-}
-
-void wait_context(struct bdev_context *context) {
-  while (context->counter) {
-    context->counter--;
-    sem_wait(&context->sem);
-  }
 }
