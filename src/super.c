@@ -155,15 +155,22 @@ static void testfs_write_inode_freemap(struct super_block *sb, int inode_nr) {
                1);
 }
 
-static void testfs_write_block_freemap_async(struct super_block *sb, int block_nr) {
+static void testfs_write_block_freemap_async(
+    struct super_block *sb, struct future *f, int block_nr) {
   char *freemap;
   int nr;
 
   assert(sb->block_freemap);
   freemap = bitmap_getdata(sb->block_freemap);
   nr = block_nr / (BLOCK_SIZE * BITS_PER_WORD);
-  // FIXME: Async
-  write_blocks(sb, freemap + (nr * BLOCK_SIZE), sb->sb.block_freemap_start + nr, 1);
+  write_blocks_async(
+    sb,
+    METADATA_REACTOR,
+    f,
+    freemap + (nr * BLOCK_SIZE),
+    sb->sb.block_freemap_start + nr,
+    1
+  );
 }
 
 static void testfs_write_block_freemap(struct super_block *sb, int block_nr) {
@@ -173,19 +180,20 @@ static void testfs_write_block_freemap(struct super_block *sb, int block_nr) {
   assert(sb->block_freemap);
   freemap = bitmap_getdata(sb->block_freemap);
   nr = block_nr / (BLOCK_SIZE * BITS_PER_WORD);
-  write_blocks(sb, freemap + (nr * BLOCK_SIZE), sb->sb.block_freemap_start + nr,
-               1);
+  write_blocks(
+    sb, freemap + (nr * BLOCK_SIZE), sb->sb.block_freemap_start + nr, 1);
 }
 
 /* return free block number or negative value */
-static int testfs_get_block_freemap_async(struct super_block *sb) {
+static int testfs_get_block_freemap_async(
+    struct super_block *sb, struct future *f) {
   u_int32_t index;
   int ret;
 
   assert(sb->block_freemap);
   ret = bitmap_alloc(sb->block_freemap, &index);
   if (ret < 0) return ret;
-  testfs_write_block_freemap_async(sb, index);
+  testfs_write_block_freemap_async(sb, f, index);
   return index;
 }
 
@@ -228,11 +236,13 @@ void testfs_put_inode_freemap(struct super_block *sb, int inode_nr) {
 }
 
 /* allocate a block and return its block number.
- * returns negative value on error. */
-int testfs_alloc_block_async(struct super_block *sb, char *block) {
+ * returns negative value on error.
+ * wait on the future to ensure the metadata write completes. */
+int testfs_alloc_block_async(
+    struct super_block *sb, struct future *f, char *block) {
   int phy_block_nr;
 
-  phy_block_nr = testfs_get_block_freemap_async(sb);
+  phy_block_nr = testfs_get_block_freemap_async(sb, f);
   // if error occurred, return -ENOSPC
   if (phy_block_nr < 0) return phy_block_nr;
   bzero(block, BLOCK_SIZE);
