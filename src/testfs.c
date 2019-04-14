@@ -7,6 +7,7 @@
 #include "super.h"
 #include "tx.h"
 #include "device.h"
+#include "bench.h"
 
 static int cmd_help(struct super_block*, struct context *c);
 static int cmd_quit(struct super_block*, struct context *c);
@@ -106,6 +107,11 @@ static struct {
     {
         "checkfs",
         cmd_checkfs,
+        1,
+    },
+    {
+        "benchmark",
+        cmd_benchmark,
         1,
     },
     {
