@@ -401,43 +401,43 @@ int testfs_write_data(struct inode *in, int start, char *buf, const int size) {
   int b_offset = start % BLOCK_SIZE; /* dst offset in block for copy */
   int buf_offset = 0;                /* src offset in buf for copy */
   int done = 0;
-  // fslice_data(buf, size);
 
   assert(buf);
   assert(start <= in->in.i_size);
   do {
-	int block_nr = (start + buf_offset) / BLOCK_SIZE;
-	int copy_size;
-	int csum;
+    int block_nr = (start + buf_offset) / BLOCK_SIZE;
+    int copy_size;
+    int csum;
 
-	block_nr = testfs_allocate_block_async(in, block, block_nr);
-	if (block_nr < 0) {
-	  int orig_size = in->in.i_size;
-	  in->in.i_size = MAX(orig_size, start + buf_offset);
-	  in->i_flags |= I_FLAGS_DIRTY;
-	  testfs_truncate_data(in, orig_size);
-	  return block_nr;
-	}
-	assert(block_nr > 0);
-	if ((size - buf_offset) <= (BLOCK_SIZE - b_offset)) {
-	  copy_size = size - buf_offset;
-	  done = 1;
-	} else {
-	  copy_size = BLOCK_SIZE - b_offset;
-	}
-	memcpy(block + b_offset, buf + buf_offset, copy_size);
-	csum = testfs_calculate_csum(block, BLOCK_SIZE);
-	// FIXME: Async
-	write_blocks(in->sb, block, block_nr, 1);
-	testfs_put_csum_async(in->sb, block_nr, csum);
-	buf_offset += copy_size;
-	b_offset = 0;
+    block_nr = testfs_allocate_block(in, block, block_nr);
+    if (block_nr < 0) {
+      int orig_size = in->in.i_size;
+      in->in.i_size = MAX(orig_size, start + buf_offset);
+      in->i_flags |= I_FLAGS_DIRTY;
+      testfs_truncate_data(in, orig_size);
+      return block_nr;
+    }
+    assert(block_nr > 0);
+    if ((size - buf_offset) <= (BLOCK_SIZE - b_offset)) {
+      copy_size = size - buf_offset;
+      done = 1;
+    } else {
+      copy_size = BLOCK_SIZE - b_offset;
+    }
+    memcpy(block + b_offset, buf + buf_offset, copy_size);
+    csum = testfs_calculate_csum(block, BLOCK_SIZE);
+    write_blocks(in->sb, block, block_nr, 1);
+    testfs_put_csum(in->sb, block_nr, csum);
+    buf_offset += copy_size;
+    b_offset = 0;
   } while (!done);
-  // TODO: Fix handling of async requests
-  //wait_context(in->sb->fs->contexts[INODE_LUN]);
-  //wait_context(in->sb->fs->contexts[DATA_LUN]);
   in->in.i_size = MAX(in->in.i_size, start + size);
   in->i_flags |= I_FLAGS_DIRTY;
+  return 0;
+}
+
+int testfs_write_data_async(
+    struct inode *in, struct future *f, int start, char *buf, const int size) {
   return 0;
 }
 
