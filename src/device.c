@@ -58,7 +58,17 @@ static void init_reactors_complete(void *arg) {
 static void acquire_io_channels(void *arg) {
   struct reactor_init_context *ctx = arg;
   ctx->reactor->io_channel = spdk_bdev_get_io_channel(ctx->fs->bdev_ctx.bdev_desc);
-  send_request(ctx->fs->reactors[MAIN_REACTOR].lcore, init_reactors_complete, ctx->completed_ctx);
+  LOG(
+    "Reactor %d, io_channel %p, thread %p\n",
+    ctx->reactor->lcore,
+    ctx->reactor->io_channel,
+    spdk_get_thread()
+  );
+  send_request(
+    ctx->fs->reactors[MAIN_REACTOR].lcore,
+    init_reactors_complete,
+    ctx->completed_ctx
+  );
   free(ctx);
 }
 
@@ -74,7 +84,7 @@ static void init_reactors(struct filesystem *fs, struct init_completed_context *
     ctx[i]->fs = fs;
     ctx[i]->reactor = &(fs->reactors[i]);
     ctx[i]->completed_ctx = completed_ctx;
-    send_request(fs->reactors[MAIN_REACTOR].lcore, acquire_io_channels, ctx[i]);
+    send_request(fs->reactors[i].lcore, acquire_io_channels, ctx[i]);
   }
 }
 
