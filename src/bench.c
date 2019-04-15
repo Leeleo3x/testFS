@@ -107,21 +107,21 @@ static void print_digest(
 
   double speedup = average_sync_us / average_async_us;
 
-  LOG("Number of trials: %d\n", num_trials);
-  LOG("Speedup:          %.2f\n", speedup);
-  LOG(
+  printf("Number of trials: %d\n", num_trials);
+  printf("Speedup:          %.2f\n", speedup);
+  printf(
     "Sync. Writes:     min: %lld us  max: %lld us  avg: %.2f us\n",
     min_sync_us,
     max_sync_us,
     average_sync_us
   );
-  LOG(
+  printf(
     "Async. Writes:    min: %lld us  max: %lld us  avg: %.2f us\n",
     min_async_us,
     max_async_us,
     average_async_us
   );
-  LOG("----------\n");
+  printf("\n");
 }
 
 /**
