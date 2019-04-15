@@ -20,6 +20,18 @@
 
 #define FILENAME_LENGTH 5
 
+static char *read_file(const char *file, size_t *size) {
+  FILE *f = fopen(file, "rb");
+  fseek(f, 0, SEEK_END);
+  *size = ftell(f);
+  fseek(f, 0, SEEK_SET);  /* same as rewind(f); */
+  char *string = malloc(*size + 1);
+  fread(string, 1, *size, f);
+  fclose(f);
+  string[*size] = '\0';
+  return string;
+}
+
 static void benchmark_set_up(
   struct filesystem *fs,
   struct context *c,
@@ -140,26 +152,25 @@ static void print_digest(
  * writes when writing data to files.
  *
  * Arguments:
- * cmd[1]: int - The number of trials to run
- * cmd[2]: int - The number of files to create
+ * cmd[1]: string - Name of the input data file
+ * cmd[2]: int    - The number of trials to run
+ * cmd[3]: int    - The number of files to create
  */
 int cmd_benchmark(struct super_block *sb, struct context *c) {
-  if (c->nargs < 3) {
+  if (c->nargs < 4) {
     return -EINVAL;
   }
 
   struct filesystem *fs = sb->fs;
-  int num_trials = strtol(c->cmd[1], NULL, 10);
-  size_t num_files = strtol(c->cmd[2], NULL, 10);
+  int size;
+  char *content = read_file(c->cmd[1], &size);
+  int num_trials = strtol(c->cmd[2], NULL, 10);
+  size_t num_files = strtol(c->cmd[3], NULL, 10);
 
   char filenames[num_files][FILENAME_LENGTH];
   for (size_t i = 0; i < num_files; i++) {
     sprintf(filenames[i], "%lu", i);
   }
-
-  // TODO: Get dummy data for benchmarking
-  char *content = "hello world!";
-  int size = strlen(content) + 1;
 
   long long results_sync_us[num_trials];
   long long results_async_us[num_trials];
@@ -180,5 +191,6 @@ int cmd_benchmark(struct super_block *sb, struct context *c) {
     );
   }
 
+  free(content);
   print_digest(results_sync_us, results_async_us, num_trials);
 }

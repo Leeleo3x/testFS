@@ -112,7 +112,7 @@ static struct {
     {
         "benchmark",
         cmd_benchmark,
-        2,
+        3,
     },
     {
         "quit",
