@@ -18,22 +18,24 @@
 #define M_MIN(X, Y) ((X) < (Y) ? (X) : (Y))
 #define M_MAX(X, Y) ((X) > (Y) ? (X) : (Y))
 
+#define FILENAME_LENGTH 5
+
 static void benchmark_set_up(
-  struct super_block *sb,
+  struct filesystem *fs,
   struct context *c,
-  char **filenames,
+  char filenames[][FILENAME_LENGTH],
   size_t num_files
 ) {
-  cmd_mkfs(sb, c);
+  cmd_mkfs(fs->sb, c);
   for (size_t i = 0; i < num_files; i++) {
-    testfs_create_file_or_dir(sb, c->cur_dir, I_FILE, filenames[i]);
+    testfs_create_file_or_dir(fs->sb, c->cur_dir, I_FILE, filenames[i]);
   }
 }
 
 static void benchmark_sync_writes(
-  struct super_block *sb,
+  struct filesystem *fs,
   struct inode *dir,
-  char **filenames,
+  char filenames[][FILENAME_LENGTH],
   size_t num_files,
   char *content,
   int size
@@ -42,21 +44,21 @@ static void benchmark_sync_writes(
   FOR(
     num_files,
     file_inodes[i] =
-      testfs_get_inode(sb, testfs_dir_name_to_inode_nr(dir, filenames[i]))
+      testfs_get_inode(fs->sb, testfs_dir_name_to_inode_nr(dir, filenames[i]))
   );
 
-  testfs_tx_start(sb, TX_WRITE);
+  testfs_tx_start(fs->sb, TX_WRITE);
   FOR(num_files, testfs_write_data(file_inodes[i], 0, content, size));
   FOR(num_files, testfs_sync_inode(file_inodes[i]));
-  testfs_tx_commit(sb, TX_WRITE);
+  testfs_tx_commit(fs->sb, TX_WRITE);
 
   FOR(num_files, testfs_put_inode(file_inodes[i]));
 }
 
 static void benchmark_async_writes(
-  struct super_block *sb,
+  struct filesystem *fs,
   struct inode *dir,
-  char **filenames,
+  char filenames[][FILENAME_LENGTH],
   size_t num_files,
   char *content,
   int size
@@ -68,15 +70,15 @@ static void benchmark_async_writes(
   FOR(
     num_files,
     file_inodes[i] =
-      testfs_get_inode(sb, testfs_dir_name_to_inode_nr(dir, filenames[i]))
+      testfs_get_inode(fs->sb, testfs_dir_name_to_inode_nr(dir, filenames[i]))
   );
 
-  testfs_tx_start(sb, TX_WRITE);
+  testfs_tx_start(fs->sb, TX_WRITE);
   FOR(
     num_files, testfs_write_data_async(file_inodes[i], &f, 0, content, size));
   FOR(num_files, testfs_sync_inode(file_inodes[i]));
   spin_wait(&f);
-  testfs_tx_commit(sb, TX_WRITE);
+  testfs_tx_commit(fs->sb, TX_WRITE);
 
   FOR(num_files, testfs_put_inode(file_inodes[i]));
 }
@@ -108,13 +110,13 @@ static void print_digest(
   LOG("Number of trials: %d\n", num_trials);
   LOG("Speedup:          %.2f\n", speedup);
   LOG(
-    "Sync. Writes:     min: %lld  max: %lld  avg: %.2f\n",
+    "Sync. Writes:     min: %lld us  max: %lld us  avg: %.2f us\n",
     min_sync_us,
     max_sync_us,
     average_sync_us
   );
   LOG(
-    "Async. Writes:    min: %lld  max: %lld  avg: %.2f\n",
+    "Async. Writes:    min: %lld us  max: %lld us  avg: %.2f us\n",
     min_async_us,
     max_async_us,
     average_async_us
@@ -137,10 +139,11 @@ int cmd_benchmark(struct super_block *sb, struct context *c) {
     return -EINVAL;
   }
 
+  struct filesystem *fs = sb->fs;
   int num_trials = strtol(c->cmd[1], NULL, 10);
   size_t num_files = strtol(c->cmd[2], NULL, 10);
 
-  char filenames[num_files][5];
+  char filenames[num_files][FILENAME_LENGTH];
   for (size_t i = 0; i < num_files; i++) {
     sprintf(filenames[i], "%lu", i);
   }
@@ -153,18 +156,18 @@ int cmd_benchmark(struct super_block *sb, struct context *c) {
   long long results_async_us[num_trials];
 
   for (int trial = 0; trial < num_trials; trial++) {
-    benchmark_set_up(sb, c, filenames, num_files);
+    benchmark_set_up(fs, c, filenames, num_files);
     MEASURE_USEC(
       results_sync_us[trial],
       benchmark_sync_writes(
-        sb, c->cur_dir, filenames, num_files, content, size)
+        fs, c->cur_dir, filenames, num_files, content, size)
     );
 
-    benchmark_set_up(sb, c, filenames, num_files);
+    benchmark_set_up(fs, c, filenames, num_files);
     MEASURE_USEC(
       results_async_us[trial],
       benchmark_async_writes(
-        sb, c->cur_dir, filenames, num_files, content, size)
+        fs, c->cur_dir, filenames, num_files, content, size)
     );
   }
 

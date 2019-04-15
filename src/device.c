@@ -92,6 +92,7 @@ static void init_reactors(
 
 static void start(void *arg1, void *arg2) {
   struct filesystem *fs = malloc(sizeof(struct filesystem));
+  fs->sb = NULL;
   struct init_completed_context *completed_ctx =
     malloc(sizeof(struct init_completed_context));
   completed_ctx->fs = fs;

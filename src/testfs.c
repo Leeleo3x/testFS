@@ -112,7 +112,7 @@ static struct {
     {
         "benchmark",
         cmd_benchmark,
-        1,
+        2,
     },
     {
         "quit",
@@ -123,7 +123,8 @@ static struct {
 
 // These commands are the only commands that can be executed
 // if a file system does not exist (i.e. the user has not run mkfs)
-static const char *non_fs_commands[] = {"?", "quit", "mkfs", NULL};
+static const char *non_fs_commands[] =
+  {"?", "quit", "mkfs", "benchmark", NULL};
 
 static bool fs_exists(struct context *c) {
   return testfs_inode_get_type(c->cur_dir) == I_DIR;
@@ -273,11 +274,9 @@ void testfs_main(struct filesystem *fs) {
   char *line = NULL;
   ssize_t nr;
   size_t line_size = 0;
-  struct super_block *sb = malloc(sizeof(struct super_block));
-  fs->sb = sb;
-  sb->fs = fs;
   struct context c;
   c.fs = fs;
+  c.cur_dir = NULL;
   int ret;
   // args->disk contains the name of the disk file.
   // initializes the in memory structure sb with data that is
@@ -316,7 +315,7 @@ void testfs_main(struct filesystem *fs) {
   testfs_put_inode(c.cur_dir);
 
   if (file_system_exists) {
-    testfs_close_super_block(sb);
+    testfs_close_super_block(fs->sb);
   }
   dev_stop(fs);
 }

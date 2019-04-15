@@ -330,6 +330,10 @@ int cmd_checkfs(struct super_block *sb, struct context *c) {
 
 int cmd_mkfs(struct super_block *sb, struct context *c) {
   int ret;
+  if (c->cur_dir != NULL) {
+    testfs_put_inode(c->cur_dir);
+    c->cur_dir = NULL;
+  }
   struct filesystem *fs = c->fs;
   free(sb);
   testfs_make_super_block(fs);
