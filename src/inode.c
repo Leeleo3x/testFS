@@ -98,6 +98,33 @@ static void testfs_write_inode_block(struct inode *in, char *block) {
   write_blocks(in->sb, block, in->sb->sb.inode_blocks_start + block_nr, 1);
 }
 
+static void testfs_read_inode_block_async(
+    struct inode *in, struct future *f, char *block) {
+  int block_nr = testfs_inode_to_block_nr(in);
+  // read from in->sb into block buffer.
+  read_blocks_async(
+    in->sb,
+    METADATA_REACTOR,
+    f,
+    block,
+    in->sb->sb.inode_blocks_start + block_nr,
+    1
+  );
+}
+
+static void testfs_write_inode_block_async(
+    struct inode *in, struct future *f, char *block) {
+  int block_nr = testfs_inode_to_block_nr(in);
+  write_blocks_async(
+    in->sb,
+    METADATA_REACTOR,
+    f,
+    block,
+    in->sb->sb.inode_blocks_start + block_nr,
+    1
+  );
+}
+
 /* given logical block number, read physical block
  * return physical block number.
  * returns 0 if physical block does not exist.
@@ -333,6 +360,25 @@ void testfs_sync_inode(struct inode *in) {
   block_offset = testfs_inode_to_block_offset(in);
   memcpy(block + block_offset, &in->in, sizeof(struct dinode));
   testfs_write_inode_block(in, block);
+  in->i_flags &= ~I_FLAGS_DIRTY;
+}
+
+void testfs_sync_inode_async(struct inode *in, struct future *f) {
+  char block[BLOCK_SIZE];
+  int block_offset;
+
+  assert(in->i_flags & I_FLAGS_DIRTY);
+
+  struct future read_future;
+  future_init(&read_future);
+
+  testfs_read_inode_block_async(in, &read_future, block);
+  block_offset = testfs_inode_to_block_offset(in);
+
+  spin_wait(&read_future);
+
+  memcpy(block + block_offset, &in->in, sizeof(struct dinode));
+  testfs_write_inode_block_async(in, f, block);
   in->i_flags &= ~I_FLAGS_DIRTY;
 }
 

@@ -48,8 +48,13 @@ static void benchmark_sync_writes(
   );
 
   testfs_tx_start(fs->sb, TX_WRITE);
-  FOR(num_files, testfs_write_data(file_inodes[i], 0, content, size));
-  FOR(num_files, testfs_sync_inode(file_inodes[i]));
+  FOR(
+    num_files,
+    {
+      testfs_write_data(file_inodes[i], 0, content, size);
+      testfs_sync_inode(file_inodes[i]);
+    }
+  );
   testfs_tx_commit(fs->sb, TX_WRITE);
 
   FOR(num_files, testfs_put_inode(file_inodes[i]));
@@ -75,8 +80,12 @@ static void benchmark_async_writes(
 
   testfs_tx_start(fs->sb, TX_WRITE);
   FOR(
-    num_files, testfs_write_data_async(file_inodes[i], &f, 0, content, size));
-  FOR(num_files, testfs_sync_inode(file_inodes[i]));
+    num_files,
+    {
+      testfs_write_data_async(file_inodes[i], &f, 0, content, size);
+      testfs_sync_inode_async(file_inodes[i], &f);
+    }
+  );
   spin_wait(&f);
   testfs_tx_commit(fs->sb, TX_WRITE);
 

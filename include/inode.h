@@ -27,6 +27,7 @@ void inode_hash_init(void);
 void inode_hash_destroy(void);
 struct inode *testfs_get_inode(struct super_block *sb, int inode_nr);
 void testfs_sync_inode(struct inode *in);
+void testfs_sync_inode_async(struct inode *in, struct future *f);
 void testfs_put_inode(struct inode *in);
 int testfs_inode_get_size(struct inode *in);
 inode_type testfs_inode_get_type(struct inode *in);
