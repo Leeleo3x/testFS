@@ -22,6 +22,9 @@
 
 static char *read_file(const char *file, size_t *size) {
   FILE *f = fopen(file, "rb");
+  if (f == NULL) {
+    return NULL;
+  }
   fseek(f, 0, SEEK_END);
   *size = ftell(f);
   fseek(f, 0, SEEK_SET);  /* same as rewind(f); */
@@ -157,6 +160,11 @@ int cmd_benchmark(struct super_block *sb, struct context *c) {
   char *content = read_file(c->cmd[1], &size);
   int num_trials = strtol(c->cmd[2], NULL, 10);
   size_t num_files = strtol(c->cmd[3], NULL, 10);
+
+  if (content == NULL) {
+    printf("Error: Unable to open file %s\n", c->cmd[1]);
+    return -EINVAL;
+  }
 
   char filenames[num_files][FILENAME_LENGTH];
   for (size_t i = 0; i < num_files; i++) {
