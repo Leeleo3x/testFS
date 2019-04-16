@@ -4,6 +4,7 @@
 #include "logging.h"
 #include "async.h"
 #include "dir.h"
+#include "block.h"
 
 #define FOR(limit, expr) {for (size_t i = 0; i < (limit); i++) { (expr); }}
 
@@ -98,7 +99,43 @@ static void benchmark_async_writes(
   FOR(num_files, testfs_put_inode(file_inodes[i]));
 }
 
+static void benchmark_raw_write(struct filesystem *fs, int num_blocks) {
+  char block[BLOCK_SIZE];
+  for (int i = 0; i < num_blocks; i++) {
+    write_blocks(fs->sb, block, i, 1);
+  }
+}
+
+static void benchmark_raw_write_async(struct filesystem *fs, int num_blocks) {
+  char block[BLOCK_SIZE];
+  struct future f;
+  future_init(&f);
+  for (int i = 0; i < num_blocks; i++) {
+    write_blocks_async(fs->sb, DATA_REACTOR, &f, block, i, 1);
+  }
+  spin_wait(&f);
+}
+
+static void benchmark_raw_read(
+    struct filesystem *fs, char *buffer, int num_blocks) {
+  for (int i = 0; i < num_blocks; i++) {
+    read_blocks(fs->sb, buffer + (i * BLOCK_SIZE), i, 1);
+  }
+}
+
+static void benchmark_raw_read_async(
+    struct filesystem *fs, char *buffer, int num_blocks) {
+  struct future f;
+  future_init(&f);
+  for (int i = 0; i < num_blocks; i++) {
+    read_blocks_async(
+      fs->sb, DATA_REACTOR, &f, buffer + (i * BLOCK_SIZE), i, 1);
+  }
+  spin_wait(&f);
+}
+
 static void print_digest(
+  char *benchmark_name,
   long long *results_sync_us,
   long long *results_async_us,
   int num_trials
@@ -122,16 +159,17 @@ static void print_digest(
 
   double speedup = average_sync_us / average_async_us;
 
+  printf("===== %s =====\n", benchmark_name);
   printf("Number of trials: %d\n", num_trials);
-  printf("Speedup:          %.2f\n", speedup);
+  printf("Async Speedup:    %.2f\n", speedup);
   printf(
-    "Sync. Writes:     min: %lld us  max: %lld us  avg: %.2f us\n",
+    "Sync:             min: %lld us  max: %lld us  avg: %.2f us\n",
     min_sync_us,
     max_sync_us,
     average_sync_us
   );
   printf(
-    "Async. Writes:    min: %lld us  max: %lld us  avg: %.2f us\n",
+    "Async:            min: %lld us  max: %lld us  avg: %.2f us\n",
     min_async_us,
     max_async_us,
     average_async_us
@@ -140,26 +178,25 @@ static void print_digest(
 }
 
 /**
- * Benchmarks the data write path of the file system.
+ * Benchmarks the end-to-end data write path of the file system.
  *
  * This is a microbenchmark meant to test the effects of using asynchronous
  * writes when writing data to files.
  *
  * Arguments:
- * cmd[1]: string - Name of the input data file
- * cmd[2]: int    - The number of trials to run
- * cmd[3]: int    - The number of files to create
+ * cmd[2]: string - Name of the input data file
+ * cmd[3]: int    - The number of trials to run
+ * cmd[4]: int    - The number of files to create
  */
-int cmd_benchmark(struct super_block *sb, struct context *c) {
+static int benchmark_e2e_write(struct filesystem *fs, struct context *c) {
   if (c->nargs < 4) {
     return -EINVAL;
   }
 
-  struct filesystem *fs = sb->fs;
   size_t size;
-  char *content = read_file(c->cmd[1], &size);
-  int num_trials = strtol(c->cmd[2], NULL, 10);
-  size_t num_files = strtol(c->cmd[3], NULL, 10);
+  char *content = read_file(c->cmd[2], &size);
+  int num_trials = strtol(c->cmd[3], NULL, 10);
+  size_t num_files = strtol(c->cmd[4], NULL, 10);
 
   if (content == NULL) {
     printf("Error: Unable to open file %s\n", c->cmd[1]);
@@ -191,5 +228,101 @@ int cmd_benchmark(struct super_block *sb, struct context *c) {
   }
 
   free(content);
-  print_digest(results_sync_us, results_async_us, num_trials);
+  print_digest("e2e_write", results_sync_us, results_async_us, num_trials);
+
+  return 0;
+}
+
+/**
+ * Benchmarks sequential reads of blocks from the underlying device.
+ *
+ * Arguments:
+ * cmd[2]: Number of trials
+ * cmd[3]: Number of blocks
+ */
+static int benchmark_raw_seq_read(struct filesystem *fs, struct context *c) {
+  if (c->nargs < 3) {
+    return -EINVAL;
+  }
+
+  int num_trials = strtol(c->cmd[2], NULL, 10);
+  int num_blocks = strtol(c->cmd[3], NULL, 10);
+
+  char *buffer = malloc(sizeof(char) * BLOCK_SIZE * num_blocks);
+
+  long long results_sync_us[num_trials];
+  long long results_async_us[num_trials];
+
+  for (int trial = 0; trial < num_trials; trial++) {
+    MEASURE_USEC(
+      results_sync_us[trial], benchmark_raw_read(fs, buffer, num_blocks));
+
+    MEASURE_USEC(
+      results_async_us[trial],
+      benchmark_raw_read_async(fs, buffer, num_blocks)
+    );
+  }
+
+  free(buffer);
+  print_digest("raw_seq_read", results_sync_us, results_async_us, num_trials);
+
+  return 0;
+}
+
+/**
+ * Benchmarks sequential writes of blocks from the underlying device.
+ *
+ * Arguments:
+ * cmd[2]: Number of trials
+ * cmd[3]: Number of blocks
+ */
+static int benchmark_raw_seq_write(struct filesystem *fs, struct context *c) {
+  if (c->nargs < 3) {
+    return -EINVAL;
+  }
+
+  int num_trials = strtol(c->cmd[2], NULL, 10);
+  int num_blocks = strtol(c->cmd[3], NULL, 10);
+
+  long long results_sync_us[num_trials];
+  long long results_async_us[num_trials];
+
+  for (int trial = 0; trial < num_trials; trial++) {
+    MEASURE_USEC(results_sync_us[trial], benchmark_raw_write(fs, num_blocks));
+
+    MEASURE_USEC(
+      results_async_us[trial], benchmark_raw_write_async(fs, num_blocks));
+  }
+
+  print_digest("raw_seq_write", results_sync_us, results_async_us, num_trials);
+
+  return 0;
+}
+
+/**
+ * Run microbenchmarks on the file system.
+ *
+ * Arguments:
+ * cmd[1]: string - Benchmark name
+ */
+int cmd_benchmark(struct super_block *sb, struct context *c) {
+  if (c->nargs < 1) {
+    return -EINVAL;
+  }
+
+  struct filesystem *fs = sb->fs;
+
+  if (strcmp(c->cmd[1], "e2e_write") == 0) {
+    return benchmark_e2e_write(fs, c);
+
+  } else if (strcmp(c->cmd[1], "raw_seq_read") == 0) {
+    return benchmark_raw_seq_read(fs, c);
+
+  } else if (strcmp(c->cmd[1], "raw_seq_write") == 0) {
+    return benchmark_raw_seq_write(fs, c);
+
+  } else {
+    printf("Unknown benchmark: '%s'\n", c->cmd[1]);
+    return -EINVAL;
+  }
 }
