@@ -147,7 +147,7 @@ int cmd_write(struct super_block *sb, struct context *c) {
   struct future f;
   future_init(&f);
   testfs_tx_start(sb, TX_WRITE);
-  ret = testfs_write_data_async(in, &f, 0, content, size);
+  ret = testfs_write_data_alternate_async(in, &f, 0, content, size);
   spin_wait(&f);
   if (ret >= 0) {
     testfs_truncate_data(in, size);

@@ -6,7 +6,8 @@
 #include "testfs.h"
 
 #define RETURN_IF_NEG(expr) {    \
-  if ((int ret = (expr)) < 0) {  \
+  int ret;                       \
+  if ((ret = (expr)) < 0) {      \
     return ret;                  \
   }                              \
 }
@@ -664,7 +665,7 @@ static void testfs_ensure_indirect_loaded(struct inode *in) {
   struct future f;
   future_init(&f);
   read_blocks_async(
-    in->sb, METADATA_REACTOR, &f, in->indirect, in->in.i_indirect, 1);
+    in->sb, METADATA_REACTOR, &f, (char *) in->indirect, in->in.i_indirect, 1);
   spin_wait(&f);
   in->i_flags |= I_FLAGS_INDIRECT_LOADED;
 }
@@ -726,14 +727,13 @@ static int testfs_file_write_block_async(
     return phy_block_nr;
   }
 
-  write_blocks_async(
-    in->sb, DATA_REACTOR, f, buf + buf_offset, phy_block_nr, 1);
+  write_blocks_async(in->sb, DATA_REACTOR, f, buf, phy_block_nr, 1);
   return 0;
 }
 
 static void testfs_file_read_block_async(
     struct inode *in, struct future *f, int log_block_nr, char *buf) {
-  int phy_block_nr = testfs_inode_log_to_phy(in, log_block_start);
+  int phy_block_nr = testfs_inode_log_to_phy(in, log_block_nr);
   if (phy_block_nr > 0) {
     read_blocks_async(in->sb, DATA_REACTOR, f, buf, phy_block_nr, 1);
   } else {
@@ -747,13 +747,13 @@ int testfs_write_data_alternate_async(
   //    number of blocks we will overwrite
   int first_block_offset = start % BLOCK_SIZE;
   assert(first_block_offset >= 0);
-  assert((size - first_block_offset) % BLOCK_SIZE == 0);
   int num_non_offset_blocks = (size - first_block_offset) / BLOCK_SIZE;
   bool has_head = first_block_offset != 0;
   bool has_tail = (size - first_block_offset) % BLOCK_SIZE != 0;
 
   // 2. Calculate the block range for the write
   int log_block_start = start / BLOCK_SIZE;
+  // FIXME: off by one
   int log_block_end = log_block_start + num_non_offset_blocks;
   if (log_block_end >= NR_DIRECT_BLOCKS &&
       ((log_block_end - NR_DIRECT_BLOCKS) >= NR_INDIRECT_BLOCKS)) {
@@ -804,5 +804,8 @@ int testfs_write_data_alternate_async(
   }
 
   // 6. Compute and store the checksums (SKIP for now)
+
+  in->in.i_size = MAX(in->in.i_size, start + size);
+  in->i_flags |= I_FLAGS_DIRTY;
   return 0;
 }
