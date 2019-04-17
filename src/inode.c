@@ -5,8 +5,17 @@
 #include "super.h"
 #include "testfs.h"
 
+#define RETURN_IF_NEG(expr) {    \
+  int ret;                       \
+  if ((ret = (expr)) < 0) {      \
+    return ret;                  \
+  }                              \
+}
+
 /* inode flags */
 #define I_FLAGS_DIRTY 0x1
+#define I_FLAGS_INDIRECT_DIRTY 0x2
+#define I_FLAGS_INDIRECT_LOADED 0x4
 
 struct inode {
   int i_flags;
@@ -15,6 +24,10 @@ struct inode {
   struct hlist_node hnode; /* keep these structures in a hash table */
   int i_count;
   struct super_block *sb;
+
+  // Stores an in-memory copy of the indirect block
+  // This buffer is valid if the INDIRECT_LOADED flag is set
+  int indirect[NR_INDIRECT_BLOCKS];
 };
 
 static struct hlist_head *inode_hash_table = NULL;
@@ -637,4 +650,165 @@ int testfs_check_inode(struct super_block *sb, struct bitmap *b_freemap,
     bitmap_mark(b_freemap, block_nr);
   }
   return size;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+static void testfs_ensure_indirect_loaded(struct inode *in) {
+  if (in->i_flags & I_FLAGS_INDIRECT_LOADED) {
+    return;
+  }
+  // NOTE: We do this synchronously since in all current use cases the callers
+  //       cannot proceed until the indirect block has been loaded.
+  struct future f;
+  future_init(&f);
+  read_blocks_async(
+    in->sb, METADATA_REACTOR, &f, (char *) in->indirect, in->in.i_indirect, 1);
+  spin_wait(&f);
+  in->i_flags |= I_FLAGS_INDIRECT_LOADED;
+}
+
+/**
+ * Returns the physical block number mapped to a given logical block number for
+ * a file.
+ *
+ * A negative return value indicates an error. A return value of 0 indicates a
+ * physical block has not been mapped to the provided logical block number.
+ */
+static int testfs_inode_log_to_phy(struct inode *in, int log_block_nr) {
+  if (log_block_nr < NR_DIRECT_BLOCKS) {
+    int phy_block_nr = in->in.i_block_nr[log_block_nr];
+    assert(phy_block_nr >= 0);
+    return in->in.i_block_nr[log_block_nr];
+  }
+
+  int indirect_log_block_nr = log_block_nr - NR_DIRECT_BLOCKS;
+  if (indirect_log_block_nr >= NR_INDIRECT_BLOCKS) {
+    return -EFBIG;
+  }
+  if (in->in.i_indirect == 0) {
+    return 0;
+  }
+
+  testfs_ensure_indirect_loaded(in);
+  return in->indirect[indirect_log_block_nr];
+}
+
+static int testfs_allocate_block_alternate(
+    struct inode *in, int log_block_nr) {
+  int phy_block_nr = testfs_alloc_block_alternate(in->sb);
+  if (phy_block_nr < 0) {
+    return phy_block_nr;
+  }
+
+  if (log_block_nr < NR_DIRECT_BLOCKS) {
+    in->in.i_block_nr[log_block_nr] = phy_block_nr;
+  } else {
+    testfs_ensure_indirect_loaded(in);
+    int indirect_log_block_nr = log_block_nr - NR_DIRECT_BLOCKS;
+    in->indirect[indirect_log_block_nr] = phy_block_nr;
+    in->i_flags |= I_FLAGS_INDIRECT_DIRTY;
+  }
+
+  in->i_flags |= I_FLAGS_DIRTY;
+  return phy_block_nr;
+}
+
+static int testfs_file_write_block_async(
+    struct inode *in, struct future *f, int log_block_nr, char *buf) {
+  int phy_block_nr = testfs_inode_log_to_phy(in, log_block_nr);
+  if (phy_block_nr == 0) {
+    phy_block_nr = testfs_allocate_block_alternate(in, log_block_nr);
+  }
+  if (phy_block_nr < 0) {
+    // Some error occurred
+    return phy_block_nr;
+  }
+
+  write_blocks_async(in->sb, DATA_REACTOR, f, buf, phy_block_nr, 1);
+  return 0;
+}
+
+static void testfs_file_read_block_async(
+    struct inode *in, struct future *f, int log_block_nr, char *buf) {
+  int phy_block_nr = testfs_inode_log_to_phy(in, log_block_nr);
+  if (phy_block_nr > 0) {
+    read_blocks_async(in->sb, DATA_REACTOR, f, buf, phy_block_nr, 1);
+  } else {
+    memset(buf, 0, BLOCK_SIZE);
+  }
+}
+
+int testfs_write_data_alternate_async(
+    struct inode *in, struct future *f, int start, char *buf, const int size) {
+  // 1. Calculate the offsets into the first and last block, as well as the
+  //    number of blocks we will overwrite
+  int first_block_offset = start % BLOCK_SIZE;
+  assert(first_block_offset >= 0);
+  int num_non_offset_blocks = (size - first_block_offset) / BLOCK_SIZE;
+  bool has_head = first_block_offset != 0;
+  bool has_tail = (size - first_block_offset) % BLOCK_SIZE != 0;
+
+  // 2. Calculate the block range for the write
+  int log_block_start = start / BLOCK_SIZE;
+  int log_block_end = log_block_start + num_non_offset_blocks;
+  if (num_non_offset_blocks > 0 && !has_head) {
+    // The block range is inclusive
+    log_block_end -= 1;
+  }
+  if (log_block_end >= NR_DIRECT_BLOCKS &&
+      ((log_block_end - NR_DIRECT_BLOCKS) >= NR_INDIRECT_BLOCKS)) {
+    // Abort if we cannot write the whole file
+    return -EFBIG;
+  }
+  int log_contig_start = log_block_start;
+  int log_contig_end = log_block_end;
+
+  // 3. The head & tail of the write are special cases - we need to read the
+  //    data first (if it exists)
+  struct future head_tail_f;
+  char head[BLOCK_SIZE], tail[BLOCK_SIZE];
+  if (has_head || has_tail) {
+    future_init(&head_tail_f);
+    if (has_head) {
+      testfs_file_read_block_async(in, &head_tail_f, log_block_start, head);
+      log_contig_start += 1;
+    }
+    if (has_tail) {
+      testfs_file_read_block_async(in, &head_tail_f, log_block_end, tail);
+      log_contig_end -= 1;
+    }
+  }
+
+  // 4. Initiate all the other writes
+  int buf_offset = first_block_offset;
+  for (int log_block_nr = log_contig_start;
+        log_block_nr <= log_contig_end; log_block_nr++) {
+    RETURN_IF_NEG(
+      testfs_file_write_block_async(in, f, log_block_nr, buf + buf_offset));
+    buf_offset += BLOCK_SIZE;
+  }
+
+  // 5. Write the head & tail
+  if (has_head || has_tail) {
+    spin_wait(&head_tail_f);
+    if (has_head) {
+      memcpy(head + first_block_offset, buf, BLOCK_SIZE - first_block_offset);
+      RETURN_IF_NEG(
+        testfs_file_write_block_async(in, f, log_block_start, head));
+    }
+    if (has_tail) {
+      int tail_size = (size - first_block_offset) % BLOCK_SIZE;
+      memcpy(tail, buf + (size - tail_size), tail_size);
+      RETURN_IF_NEG(testfs_file_write_block_async(in, f, log_block_end, tail));
+    }
+  }
+
+  // 6. Compute and store the checksums (SKIP for now)
+
+  in->in.i_size = MAX(in->in.i_size, start + size);
+  in->i_flags |= I_FLAGS_DIRTY;
+  return 0;
 }

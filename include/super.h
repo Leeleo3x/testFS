@@ -44,4 +44,11 @@ int testfs_free_block(struct super_block *sb, int block_nr);
 
 int testfs_alloc_block_async(
   struct super_block *sb, struct future *f, char *block);
+
+/**
+ * Allocates a block in the in-memory freemap. Caller is responsible for
+ * ensuring that the freemap is eventually flushed to the underlying device.
+ */
+int testfs_alloc_block_alternate(struct super_block *sb);
+
 #endif /* _SUPER_H */

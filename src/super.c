@@ -261,6 +261,15 @@ int testfs_alloc_block(struct super_block *sb, char *block) {
   return sb->sb.data_blocks_start + phy_block_nr;
 }
 
+int testfs_alloc_block_alternate(struct super_block *sb) {
+  u_int32_t index;
+  int ret = bitmap_alloc(sb->block_freemap, &index);
+  if (ret < 0) {
+    return ret;
+  }
+  return sb->sb.data_blocks_start + index;
+}
+
 /* free a block.
  * returns negative value on error. */
 int testfs_free_block(struct super_block *sb, int block_nr) {
