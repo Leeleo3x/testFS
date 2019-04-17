@@ -753,8 +753,11 @@ int testfs_write_data_alternate_async(
 
   // 2. Calculate the block range for the write
   int log_block_start = start / BLOCK_SIZE;
-  // FIXME: off by one
   int log_block_end = log_block_start + num_non_offset_blocks;
+  if (num_non_offset_blocks > 0 && !has_head) {
+    // The block range is inclusive
+    log_block_end -= 1;
+  }
   if (log_block_end >= NR_DIRECT_BLOCKS &&
       ((log_block_end - NR_DIRECT_BLOCKS) >= NR_INDIRECT_BLOCKS)) {
     // Abort if we cannot write the whole file
