@@ -5,6 +5,12 @@
 #include "super.h"
 #include "testfs.h"
 
+#define RETURN_IF_NEG(expr) {    \
+  if ((int ret = (expr)) < 0) {  \
+    return ret;                  \
+  }                              \
+}
+
 /* inode flags */
 #define I_FLAGS_DIRTY 0x1
 #define I_FLAGS_INDIRECT_DIRTY 0x2
@@ -691,6 +697,22 @@ static int testfs_inode_log_to_phy(struct inode *in, int log_block_nr) {
 
 static int testfs_allocate_block_alternate(
     struct inode *in, int log_block_nr) {
+  int phy_block_nr = testfs_alloc_block_alternate(in->sb);
+  if (phy_block_nr < 0) {
+    return phy_block_nr;
+  }
+
+  if (log_block_nr < NR_DIRECT_BLOCKS) {
+    in->in.i_block_nr[log_block_nr] = phy_block_nr;
+  } else {
+    testfs_ensure_indirect_loaded(in);
+    int indirect_log_block_nr = log_block_nr - NR_DIRECT_BLOCKS;
+    in->indirect[indirect_log_block_nr] = phy_block_nr;
+    in->i_flags |= I_FLAGS_INDIRECT_DIRTY;
+  }
+
+  in->i_flags |= I_FLAGS_DIRTY;
+  return phy_block_nr;
 }
 
 static int testfs_file_write_block_async(
@@ -761,7 +783,8 @@ int testfs_write_data_alternate_async(
   int buf_offset = first_block_offset;
   for (int log_block_nr = log_contig_start;
         log_block_nr <= log_contig_end; log_block_nr++) {
-    testfs_file_write_block_async(in, f, log_block_nr, buf + buf_offset);
+    RETURN_IF_NEG(
+      testfs_file_write_block_async(in, f, log_block_nr, buf + buf_offset));
     buf_offset += BLOCK_SIZE;
   }
 
@@ -770,12 +793,13 @@ int testfs_write_data_alternate_async(
     spin_wait(&head_tail_f);
     if (has_head) {
       memcpy(head + first_block_offset, buf, BLOCK_SIZE - first_block_offset);
-      testfs_file_write_block_async(in, f, log_block_start, head);
+      RETURN_IF_NEG(
+        testfs_file_write_block_async(in, f, log_block_start, head));
     }
     if (has_tail) {
       int tail_size = (size - first_block_offset) % BLOCK_SIZE;
       memcpy(tail, buf + (size - tail_size), tail_size);
-      testfs_file_write_block_async(in, f, log_block_end, tail);
+      RETURN_IF_NEG(testfs_file_write_block_async(in, f, log_block_end, tail));
     }
   }
 
