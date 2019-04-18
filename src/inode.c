@@ -779,21 +779,28 @@ static void testfs_file_read_block_async(
 
 int testfs_write_data_alternate_async(
     struct inode *in, struct future *f, int start, char *buf, const int size) {
+  if (size <= 0) {
+    return 0;
+  }
+
   // 1. Calculate the offsets into the first and last block, as well as the
   //    number of blocks we will overwrite
   int first_block_offset = start % BLOCK_SIZE;
+  int tail_size = (size - first_block_offset) % BLOCK_SIZE;
   assert(first_block_offset >= 0);
-  int num_non_offset_blocks = (size - first_block_offset) / BLOCK_SIZE;
+  assert(tail_size >= 0);
+  int body_size = (size - first_block_offset - tail_size);
   bool has_head = first_block_offset != 0;
-  bool has_tail = (size - first_block_offset) % BLOCK_SIZE != 0;
+  bool has_tail = tail_size != 0;
 
   // 2. Calculate the block range for the write
   int log_block_start = start / BLOCK_SIZE;
-  int log_block_end = log_block_start + num_non_offset_blocks;
-  if (num_non_offset_blocks > 0 && !has_head) {
-    // The block range is inclusive
+  int log_block_end =
+    log_block_start + (body_size / BLOCK_SIZE) + (has_tail ? 1 : 0);
+  if (!has_head) {
     log_block_end -= 1;
   }
+  assert(log_block_start <= log_block_end);
   if (log_block_end >= NR_DIRECT_BLOCKS &&
       ((log_block_end - NR_DIRECT_BLOCKS) >= NR_INDIRECT_BLOCKS)) {
     // Abort if we cannot write the whole file
@@ -836,7 +843,6 @@ int testfs_write_data_alternate_async(
         testfs_file_write_block_async(in, f, log_block_start, head));
     }
     if (has_tail) {
-      int tail_size = (size - first_block_offset) % BLOCK_SIZE;
       memcpy(tail, buf + (size - tail_size), tail_size);
       RETURN_IF_NEG(testfs_file_write_block_async(in, f, log_block_end, tail));
     }
@@ -888,7 +894,8 @@ void testfs_bulk_sync_inode_async(
   future_init(&read_f);
 
   for (size_t i = 0; i < num_inodes; i++) {
-    int block_nr = testfs_inode_to_block_nr(inodes[i]);
+    int block_nr =
+      sb->sb.inode_blocks_start + testfs_inode_to_block_nr(inodes[i]);
 
     // Flush the block we've been building so far if we reach a new block and
     // then load the next inode block

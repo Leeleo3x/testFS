@@ -91,8 +91,10 @@ static void benchmark_async_writes(
 
   testfs_tx_start(fs->sb, TX_WRITE);
   FOR(
-    num_files, testfs_write_data_async(file_inodes[i], &f, 0, content, size));
-  FOR(num_files, testfs_sync_inode_async(file_inodes[i], &f));
+    num_files,
+    testfs_write_data_alternate_async(file_inodes[i], &f, 0, content, size)
+  );
+  testfs_bulk_sync_inode_async(file_inodes, num_files, &f);
   spin_wait(&f);
   testfs_tx_commit(fs->sb, TX_WRITE);
 
@@ -199,7 +201,7 @@ static int benchmark_e2e_write(struct filesystem *fs, struct context *c) {
   size_t num_files = strtol(c->cmd[4], NULL, 10);
 
   if (content == NULL) {
-    printf("Error: Unable to open file %s\n", c->cmd[1]);
+    printf("Error: Unable to open file %s\n", c->cmd[2]);
     return -EINVAL;
   }
 
