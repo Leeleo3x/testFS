@@ -37,6 +37,9 @@ int testfs_create_inode(struct super_block *sb, inode_type type,
                         struct inode **inp);
 void testfs_remove_inode(struct inode *in);
 int testfs_read_data(struct inode *in, int start, char *buf, const int size);
+void testfs_truncate_data(struct inode *in, const int size);
+int testfs_check_inode(struct super_block *sb, struct bitmap *b_freemap,
+                       struct inode *in);
 
 /**
  * Writes data to the file represented by the given inode synchronously.
@@ -59,10 +62,6 @@ int testfs_write_data(struct inode *in, int start, char *name, const int size);
 int testfs_write_data_async(
     struct inode *in, struct future *f, int start, char *name, const int size);
 
-void testfs_truncate_data(struct inode *in, const int size);
-int testfs_check_inode(struct super_block *sb, struct bitmap *b_freemap,
-                       struct inode *in);
-
 /**
  * Writes data to the file represented by the given inode asynchronously
  * (alternate implementation).
@@ -76,5 +75,14 @@ int testfs_check_inode(struct super_block *sb, struct bitmap *b_freemap,
  */
 int testfs_write_data_alternate_async(
     struct inode *in, struct future *f, int start, char *buf, const int size);
+
+/**
+ * Synchronizes a list of inodes.
+ *
+ * NOTE: This function will modify the order of the inodes in the list that is
+ *       passed in.
+ */
+void testfs_bulk_sync_inode_async(
+    struct inode *inodes[], size_t num_inodes, struct future *f);
 
 #endif /* _INODE_H */
