@@ -51,4 +51,10 @@ int testfs_alloc_block_async(
  */
 int testfs_alloc_block_alternate(struct super_block *sb);
 
+/**
+ * Writes the in-memory freemap to the underlying device.
+ */
+void testfs_flush_block_freemap_async(
+  struct super_block *sb, struct future *f);
+
 #endif /* _SUPER_H */
