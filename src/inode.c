@@ -1,9 +1,12 @@
+#include <stdlib.h>
+
 #include "inode.h"
 #include "block.h"
 #include "csum.h"
 #include "list.h"
 #include "super.h"
 #include "testfs.h"
+#include "logging.h"
 
 #define RETURN_IF_NEG(expr) {    \
   int ret;                       \
@@ -373,6 +376,12 @@ void testfs_sync_inode(struct inode *in) {
   block_offset = testfs_inode_to_block_offset(in);
   memcpy(block + block_offset, &in->in, sizeof(struct dinode));
   testfs_write_inode_block(in, block);
+
+  if (in->i_flags & I_FLAGS_INDIRECT_DIRTY) {
+    write_blocks(in->sb, (char *) (in->indirect), in->in.i_indirect, 1);
+    in->i_flags &= ~(I_FLAGS_INDIRECT_DIRTY);
+  }
+
   in->i_flags &= ~I_FLAGS_DIRTY;
 }
 
@@ -392,6 +401,19 @@ void testfs_sync_inode_async(struct inode *in, struct future *f) {
 
   memcpy(block + block_offset, &in->in, sizeof(struct dinode));
   testfs_write_inode_block_async(in, f, block);
+
+  if (in->i_flags & I_FLAGS_INDIRECT_DIRTY) {
+    write_blocks_async(
+      in->sb,
+      METADATA_REACTOR,
+      f,
+      (char *) (in->indirect),
+      in->in.i_indirect,
+      1
+    );
+    in->i_flags &= ~(I_FLAGS_INDIRECT_DIRTY);
+  }
+
   in->i_flags &= ~I_FLAGS_DIRTY;
 }
 
@@ -703,16 +725,30 @@ static int testfs_allocate_block_alternate(
     return phy_block_nr;
   }
 
+  in->i_flags |= I_FLAGS_DIRTY;
+
   if (log_block_nr < NR_DIRECT_BLOCKS) {
     in->in.i_block_nr[log_block_nr] = phy_block_nr;
-  } else {
-    testfs_ensure_indirect_loaded(in);
-    int indirect_log_block_nr = log_block_nr - NR_DIRECT_BLOCKS;
-    in->indirect[indirect_log_block_nr] = phy_block_nr;
-    in->i_flags |= I_FLAGS_INDIRECT_DIRTY;
+    return phy_block_nr;
   }
 
-  in->i_flags |= I_FLAGS_DIRTY;
+  if (in->in.i_indirect == 0) {
+    // Allocate the indirect block if one doesn't exist
+    int indirect_block_nr = testfs_alloc_block_alternate(in->sb);
+    if (indirect_block_nr < 0) {
+      return indirect_block_nr;
+    }
+    memset(in->indirect, 0, sizeof(int) * NR_INDIRECT_BLOCKS);
+    in->in.i_indirect = indirect_block_nr;
+    in->i_flags |= I_FLAGS_INDIRECT_LOADED;
+
+  } else {
+    testfs_ensure_indirect_loaded(in);
+  }
+
+  int indirect_log_block_nr = log_block_nr - NR_DIRECT_BLOCKS;
+  in->indirect[indirect_log_block_nr] = phy_block_nr;
+  in->i_flags |= I_FLAGS_INDIRECT_DIRTY;
   return phy_block_nr;
 }
 
@@ -811,4 +847,66 @@ int testfs_write_data_alternate_async(
   in->in.i_size = MAX(in->in.i_size, start + size);
   in->i_flags |= I_FLAGS_DIRTY;
   return 0;
+}
+
+static int inode_compare(const void *p1, const void *p2) {
+  return testfs_inode_to_block_nr((struct inode *) p1) -
+    testfs_inode_to_block_nr((struct inode *) p2);
+}
+
+void testfs_bulk_sync_inode_async(
+    struct inode *inodes[], size_t num_inodes, struct future *f) {
+  if (num_inodes == 0) {
+    return;
+  }
+
+  struct super_block *sb = inodes[0]->sb;
+
+  // 1. Flush any indirect blocks
+  for (size_t i = 0; i < num_inodes; i++) {
+    if (!(inodes[i]->i_flags & I_FLAGS_INDIRECT_DIRTY)) {
+      continue;
+    }
+    write_blocks_async(
+      sb,
+      METADATA_REACTOR,
+      f,
+      (char *) (inodes[i]->indirect),
+      inodes[i]->in.i_indirect,
+      1
+    );
+    inodes[i]->i_flags &= ~(I_FLAGS_INDIRECT_DIRTY);
+  }
+
+  // 2. Ensure that the inodes are clustered by physical block number
+  qsort(inodes, num_inodes, sizeof(struct inode *), inode_compare);
+
+  // 3. Write the inodes block by block
+  int cur_block_nr = -1;
+  char block[BLOCK_SIZE];
+  struct future read_f;
+  future_init(&read_f);
+
+  for (size_t i = 0; i < num_inodes; i++) {
+    int block_nr = testfs_inode_to_block_nr(inodes[i]);
+
+    // Flush the block we've been building so far if we reach a new block and
+    // then load the next inode block
+    if (block_nr != cur_block_nr) {
+      if (cur_block_nr != -1) {
+        write_blocks_async(sb, METADATA_REACTOR, f, block, cur_block_nr, 1);
+      }
+      read_blocks_async(sb, METADATA_REACTOR, &read_f, block, block_nr, 1);
+      spin_wait(&read_f);
+      cur_block_nr = block_nr;
+    }
+
+    // Copy the updated dinode into the block
+    int offset = testfs_inode_to_block_offset(inodes[i]);
+    memcpy(block + offset, &(inodes[i]->in), sizeof(struct dinode));
+    inodes[i]->i_flags &= ~(I_FLAGS_DIRTY);
+  }
+
+  // Flush the last block
+  write_blocks_async(sb, METADATA_REACTOR, f, block, cur_block_nr, 1);
 }
