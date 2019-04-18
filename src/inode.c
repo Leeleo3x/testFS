@@ -856,8 +856,8 @@ int testfs_write_data_alternate_async(
 }
 
 static int inode_compare(const void *p1, const void *p2) {
-  return testfs_inode_to_block_nr((struct inode *) p1) -
-    testfs_inode_to_block_nr((struct inode *) p2);
+  return testfs_inode_to_block_nr(*((struct inode **)p1)) -
+    testfs_inode_to_block_nr(*((struct inode **)p2));
 }
 
 void testfs_bulk_sync_inode_async(
