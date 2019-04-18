@@ -267,7 +267,7 @@ int testfs_alloc_block_alternate(struct super_block *sb) {
   if (ret < 0) {
     return ret;
   }
-  return index;
+  return sb->sb.data_blocks_start + index;
 }
 
 /* free a block.
