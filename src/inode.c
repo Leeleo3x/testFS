@@ -114,33 +114,6 @@ static void testfs_write_inode_block(struct inode *in, char *block) {
   write_blocks(in->sb, block, in->sb->sb.inode_blocks_start + block_nr, 1);
 }
 
-static void testfs_read_inode_block_async(
-    struct inode *in, struct future *f, char *block) {
-  int block_nr = testfs_inode_to_block_nr(in);
-  // read from in->sb into block buffer.
-  read_blocks_async(
-    in->sb,
-    METADATA_REACTOR,
-    f,
-    block,
-    in->sb->sb.inode_blocks_start + block_nr,
-    1
-  );
-}
-
-static void testfs_write_inode_block_async(
-    struct inode *in, struct future *f, char *block) {
-  int block_nr = testfs_inode_to_block_nr(in);
-  write_blocks_async(
-    in->sb,
-    METADATA_REACTOR,
-    f,
-    block,
-    in->sb->sb.inode_blocks_start + block_nr,
-    1
-  );
-}
-
 /* given logical block number, read physical block
  * return physical block number.
  * returns 0 if physical block does not exist.
@@ -162,118 +135,6 @@ static int testfs_get_block(struct inode *in, char *block, int log_block_nr) {
   phy_block_nr = ((int *)block)[log_block_nr];
 read_block:
   if (phy_block_nr > 0) read_blocks(in->sb, block, phy_block_nr, 1);
-  return phy_block_nr;
-}
-
-/* given logical block number, read physical block
- * return physical block number.
- * returns 0 if physical block does not exist.
- * returns negative value on other errors. */
-
-// also reads the block into block buffer.
-static int testfs_get_block_async(
-  struct inode *in,
-  uint32_t reactor_id,
-  struct future *f,
-  char *block,
-  int log_block_nr
-) {
-  int phy_block_nr;
-
-  assert(log_block_nr >= 0);
-  if (log_block_nr < NR_DIRECT_BLOCKS) {
-    phy_block_nr = in->in.i_block_nr[log_block_nr];
-    goto read_block;
-  }
-  log_block_nr -= NR_DIRECT_BLOCKS;
-  if (log_block_nr >= NR_INDIRECT_BLOCKS) return -EFBIG;
-  if (in->in.i_indirect == 0) return 0;
-
-  // NOTE: This read needs to be performed synchronously because we need the
-  //       block data immediately afterwards.
-  struct future indirect_read;
-  future_init(&indirect_read);
-  read_blocks_async(
-    in->sb, METADATA_REACTOR, &indirect_read, block, in->in.i_indirect, 1);
-  spin_wait(&indirect_read);
-
-  phy_block_nr = ((int *)block)[log_block_nr];
-
-read_block:
-  if (phy_block_nr > 0) {
-    read_blocks_async(in->sb, reactor_id, f, block, phy_block_nr, 1);
-  }
-  return phy_block_nr;
-}
-
-
-
-static int testfs_allocate_block_async(
-    struct inode *in, struct future *f, char *block, int log_block_nr) {
-  char indirect[BLOCK_SIZE];
-  int phy_block_nr;
-
-  assert(log_block_nr >= 0);
-  // this reads log_block_nr inside block buffer, and returns
-  // the phy_block_nr corresponding to the block.
-  phy_block_nr =
-    testfs_get_block_async(in, DATA_REACTOR, f, block, log_block_nr);
-  // successfully obtained a physical block.
-  if (phy_block_nr != 0) return phy_block_nr;
-  // otherwise we will need to allocate a new physical block
-  if (log_block_nr < NR_DIRECT_BLOCKS) {
-	// initializes block buffer with 0.
-	// uses in->sb to allocate block in block freemap
-	phy_block_nr = testfs_alloc_block_async(in->sb, f, block);
-	// error in allocating block in freemap, return
-	// -ENOSPC
-	if (phy_block_nr < 0) return phy_block_nr;
-	// make logical-physical block number mapping
-	in->in.i_block_nr[log_block_nr] = phy_block_nr;
-	in->i_flags |= I_FLAGS_DIRTY;
-	return phy_block_nr;
-  }
-  log_block_nr -= NR_DIRECT_BLOCKS;
-  assert(log_block_nr < NR_INDIRECT_BLOCKS);
-
-  // NOTE: If we reach this point, the future's expected_counts should not have
-  //       been incremented by the calls above.
-  struct future indirect_block_f;
-  future_init(&indirect_block_f);
-
-  // if there are no indirect blocks, assign a new inode
-  // and point indirect block pointer to that newly created
-  // block.
-  if (in->in.i_indirect == 0) {
-    // indirect is the temporary char block we take here
-    phy_block_nr =
-      testfs_alloc_block_async(in->sb, &indirect_block_f, indirect);
-    if (phy_block_nr < 0) {
-      spin_wait(&indirect_block_f);
-      return phy_block_nr;
-    }
-    in->in.i_indirect = phy_block_nr;
-    in->i_flags |= I_FLAGS_DIRTY;
-  } else {
-    // if we already have an indirect block, then we read the
-    // indirect block into the indirect buffer.
-    read_blocks_async(
-      in->sb,
-      METADATA_REACTOR,
-      &indirect_block_f,
-      indirect,
-      in->in.i_indirect,
-      1
-    );
-  }
-  // allocate a new block and make logical to physical block mapping
-  phy_block_nr = testfs_alloc_block_async(in->sb, f, block);
-
-  spin_wait(&indirect_block_f);
-  if (phy_block_nr > 0) ((int *)indirect)[log_block_nr] = phy_block_nr;
-  // write the indirect buffer to disk
-  write_blocks_async(
-    in->sb, METADATA_REACTOR, f, indirect, in->in.i_indirect, 1);
   return phy_block_nr;
 }
 
@@ -379,38 +240,6 @@ void testfs_sync_inode(struct inode *in) {
 
   if (in->i_flags & I_FLAGS_INDIRECT_DIRTY) {
     write_blocks(in->sb, (char *) (in->indirect), in->in.i_indirect, 1);
-    in->i_flags &= ~(I_FLAGS_INDIRECT_DIRTY);
-  }
-
-  in->i_flags &= ~I_FLAGS_DIRTY;
-}
-
-void testfs_sync_inode_async(struct inode *in, struct future *f) {
-  char block[BLOCK_SIZE];
-  int block_offset;
-
-  assert(in->i_flags & I_FLAGS_DIRTY);
-
-  struct future read_future;
-  future_init(&read_future);
-
-  testfs_read_inode_block_async(in, &read_future, block);
-  block_offset = testfs_inode_to_block_offset(in);
-
-  spin_wait(&read_future);
-
-  memcpy(block + block_offset, &in->in, sizeof(struct dinode));
-  testfs_write_inode_block_async(in, f, block);
-
-  if (in->i_flags & I_FLAGS_INDIRECT_DIRTY) {
-    write_blocks_async(
-      in->sb,
-      METADATA_REACTOR,
-      f,
-      (char *) (in->indirect),
-      in->in.i_indirect,
-      1
-    );
     in->i_flags &= ~(I_FLAGS_INDIRECT_DIRTY);
   }
 
@@ -541,54 +370,6 @@ int testfs_write_data(struct inode *in, int start, char *buf, const int size) {
     csum = testfs_calculate_csum(block, BLOCK_SIZE);
     write_blocks(in->sb, block, block_nr, 1);
     testfs_put_csum(in->sb, block_nr, csum);
-    buf_offset += copy_size;
-    b_offset = 0;
-  } while (!done);
-  in->in.i_size = MAX(in->in.i_size, start + size);
-  in->i_flags |= I_FLAGS_DIRTY;
-  return 0;
-}
-
-int testfs_write_data_async(
-    struct inode *in, struct future *f, int start, char *buf, const int size) {
-  char block[BLOCK_SIZE];
-  int b_offset = start % BLOCK_SIZE; /* dst offset in block for copy */
-  int buf_offset = 0;                /* src offset in buf for copy */
-  int done = 0;
-  struct future block_metadata_f;
-
-  assert(buf);
-  assert(start <= in->in.i_size);
-  do {
-    int block_nr = (start + buf_offset) / BLOCK_SIZE;
-    int copy_size;
-    int csum;
-    future_init(&block_metadata_f);
-
-    block_nr =
-      testfs_allocate_block_async(in, &block_metadata_f, block, block_nr);
-    if (block_nr < 0) {
-      int orig_size = in->in.i_size;
-      in->in.i_size = MAX(orig_size, start + buf_offset);
-      in->i_flags |= I_FLAGS_DIRTY;
-      spin_wait(&block_metadata_f);
-      testfs_truncate_data(in, orig_size);
-      return block_nr;
-    }
-    assert(block_nr > 0);
-    if ((size - buf_offset) <= (BLOCK_SIZE - b_offset)) {
-      copy_size = size - buf_offset;
-      done = 1;
-    } else {
-      copy_size = BLOCK_SIZE - b_offset;
-    }
-    spin_wait(&block_metadata_f);
-    memcpy(block + b_offset, buf + buf_offset, copy_size);
-    write_blocks_async(in->sb, DATA_REACTOR, f, block, block_nr, 1);
-    csum = testfs_calculate_csum(block, BLOCK_SIZE);
-    // NOTE: It's safe to write the checksum asynchronously because it is first
-    //       stored in memory and writes to I/O channels are processed FIFO.
-    testfs_put_csum_async(in->sb, f, block_nr, csum);
     buf_offset += copy_size;
     b_offset = 0;
   } while (!done);
