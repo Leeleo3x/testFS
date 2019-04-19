@@ -50,19 +50,6 @@ int testfs_check_inode(struct super_block *sb, struct bitmap *b_freemap,
 int testfs_write_data(struct inode *in, int start, char *name, const int size);
 
 /**
- * Writes data to the file represented by the given inode asynchronously.
- *
- * When this function returns, the writes to the underlying device may not have
- * completed. However this function guarantees that, after returning, it is
- * safe to issue additional write requests.
- *
- * To wait for the writes to complete, the caller should wait on the provided
- * future.
- */
-int testfs_write_data_async(
-    struct inode *in, struct future *f, int start, char *name, const int size);
-
-/**
  * Writes data to the file represented by the given inode asynchronously
  * (alternate implementation).
  *
