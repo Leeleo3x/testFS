@@ -91,3 +91,32 @@ int testfs_verify_csum(struct super_block *sb, int phy_block_nr) {
 
   return 0;
 }
+
+void testfs_set_csum(struct super_block *sb, int phy_block_nr, int csum) {
+  int csum_offset = phy_block_nr - sb->sb.data_blocks_start;
+  assert(csum_offset >= 0 && csum_offset < MAX_NR_CSUMS);
+  int csum_block_nr = csum_offset * sizeof(int) / BLOCK_SIZE;
+  assert(csum_block_nr < CSUM_TABLE_SIZE);
+  sb->csum_table[csum_offset] = csum;
+  sb->csum_block_dirty[csum_block_nr] = true;
+}
+
+void testfs_bulk_csum_flush_async(struct super_block *sb, struct future *f) {
+  char *table = (char *)sb->csum_table;
+
+  for (int csum_block_nr = 0;
+      csum_block_nr < CSUM_TABLE_SIZE; csum_block_nr++) {
+    if (!(sb->csum_block_dirty[csum_block_nr])) {
+      continue;
+    }
+    sb->csum_block_dirty[csum_block_nr] = false;
+    write_blocks_async(
+      sb,
+      METADATA_REACTOR,
+      f,
+      table + (csum_block_nr * BLOCK_SIZE),
+      sb->sb.csum_table_start + csum_block_nr,
+      1
+    );
+  }
+}

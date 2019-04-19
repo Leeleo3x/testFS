@@ -1,9 +1,12 @@
 #ifndef _SUPER_H
 #define _SUPER_H
 
+#include <stdbool.h>
+
 #include "tx.h"
 #include "device.h"
 #include "async.h"
+#include "testfs.h"
 
 struct dsuper_block {
   int inode_freemap_start;
@@ -21,8 +24,8 @@ struct super_block {
   tx_type tx_in_progress;
   struct filesystem *fs;
 
-  // TODO: add your code here
   int *csum_table;
+  bool csum_block_dirty[CSUM_TABLE_SIZE];
 };
 
 void testfs_make_super_block(struct filesystem *dev);

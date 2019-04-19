@@ -88,6 +88,7 @@ int testfs_init_super_block(struct filesystem *fs, int corrupt) {
               BLOCK_FREEMAP_SIZE);
   sb->csum_table = malloc(CSUM_TABLE_SIZE * BLOCK_SIZE);
   if (!sb->csum_table) return -ENOMEM;
+  memset(sb->csum_block_dirty, 0, sizeof(bool) * CSUM_TABLE_SIZE);
   read_blocks(sb, (char *)sb->csum_table, sb->sb.csum_table_start,
               CSUM_TABLE_SIZE);
   sb->tx_in_progress = TX_NONE;
