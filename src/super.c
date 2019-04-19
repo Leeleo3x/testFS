@@ -217,30 +217,6 @@ int testfs_alloc_block(struct super_block *sb, char *block) {
   return sb->sb.data_blocks_start + phy_block_nr;
 }
 
-int testfs_alloc_block_alternate(struct super_block *sb) {
-  u_int32_t index;
-  int ret = bitmap_alloc(sb->block_freemap, &index);
-  if (ret < 0) {
-    return ret;
-  }
-  return sb->sb.data_blocks_start + index;
-}
-
-void testfs_flush_block_freemap_async(
-    struct super_block *sb, struct future *f) {
-  // NOTE: We choose to just flush the whole freemap since it is only 2 blocks.
-  //       If the freemap were really large, we could do something more clever
-  //       by tracking the changed bits so that we only flush the dirty blocks.
-  write_blocks_async(
-    sb,
-    METADATA_REACTOR,
-    f,
-    bitmap_getdata(sb->block_freemap),
-    sb->sb.block_freemap_start,
-    BLOCK_FREEMAP_SIZE
-  );
-}
-
 /* free a block.
  * returns negative value on error. */
 int testfs_free_block(struct super_block *sb, int block_nr) {
@@ -341,3 +317,26 @@ int cmd_mkfs(struct super_block *sb, struct context *c) {
   return 0;
 }
 
+int testfs_alloc_block_alternate(struct super_block *sb) {
+  u_int32_t index;
+  int ret = bitmap_alloc(sb->block_freemap, &index);
+  if (ret < 0) {
+    return ret;
+  }
+  return sb->sb.data_blocks_start + index;
+}
+
+void testfs_flush_block_freemap_async(
+    struct super_block *sb, struct future *f) {
+  // NOTE: We choose to just flush the whole freemap since it is only 2 blocks.
+  //       If the freemap were really large, we could do something more clever
+  //       by tracking the changed bits so that we only flush the dirty blocks.
+  write_blocks_async(
+    sb,
+    METADATA_REACTOR,
+    f,
+    bitmap_getdata(sb->block_freemap),
+    sb->sb.block_freemap_start,
+    BLOCK_FREEMAP_SIZE
+  );
+}

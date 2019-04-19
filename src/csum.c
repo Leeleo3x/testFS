@@ -101,7 +101,7 @@ void testfs_set_csum(struct super_block *sb, int phy_block_nr, int csum) {
   sb->csum_block_dirty[csum_block_nr] = true;
 }
 
-void testfs_bulk_csum_flush_async(struct super_block *sb, struct future *f) {
+void testfs_flush_csum_async(struct super_block *sb, struct future *f) {
   char *table = (char *)sb->csum_table;
 
   for (int csum_block_nr = 0;
@@ -109,7 +109,6 @@ void testfs_bulk_csum_flush_async(struct super_block *sb, struct future *f) {
     if (!(sb->csum_block_dirty[csum_block_nr])) {
       continue;
     }
-    sb->csum_block_dirty[csum_block_nr] = false;
     write_blocks_async(
       sb,
       METADATA_REACTOR,
@@ -118,5 +117,6 @@ void testfs_bulk_csum_flush_async(struct super_block *sb, struct future *f) {
       sb->sb.csum_table_start + csum_block_nr,
       1
     );
+    sb->csum_block_dirty[csum_block_nr] = false;
   }
 }

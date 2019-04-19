@@ -23,11 +23,28 @@ struct dinode {
 
 #define INODES_PER_BLOCK (BLOCK_SIZE / (sizeof(struct dinode)))
 
+/* inode flags */
+#define I_FLAGS_DIRTY 0x1
+#define I_FLAGS_INDIRECT_DIRTY 0x2
+#define I_FLAGS_INDIRECT_LOADED 0x4
+
+struct inode {
+  int i_flags;
+  struct dinode in;
+  int i_nr;
+  struct hlist_node hnode; /* keep these structures in a hash table */
+  int i_count;
+  struct super_block *sb;
+
+  // Stores an in-memory copy of the indirect block
+  // This buffer is valid if the INDIRECT_LOADED flag is set
+  int indirect[NR_INDIRECT_BLOCKS];
+};
+
 void inode_hash_init(void);
 void inode_hash_destroy(void);
 struct inode *testfs_get_inode(struct super_block *sb, int inode_nr);
 void testfs_sync_inode(struct inode *in);
-void testfs_sync_inode_async(struct inode *in, struct future *f);
 void testfs_put_inode(struct inode *in);
 int testfs_inode_get_size(struct inode *in);
 inode_type testfs_inode_get_type(struct inode *in);
@@ -40,14 +57,9 @@ int testfs_read_data(struct inode *in, int start, char *buf, const int size);
 void testfs_truncate_data(struct inode *in, const int size);
 int testfs_check_inode(struct super_block *sb, struct bitmap *b_freemap,
                        struct inode *in);
-
-/**
- * Writes data to the file represented by the given inode synchronously.
- *
- * When this function returns, the data has been written to the underlying
- * device.
- */
 int testfs_write_data(struct inode *in, int start, char *name, const int size);
+int testfs_inode_to_block_offset(struct inode *in);
+int testfs_inode_to_block_nr(struct inode *in);
 
 /**
  * Writes data to the file represented by the given inode asynchronously
@@ -64,7 +76,7 @@ int testfs_write_data_alternate_async(
     struct inode *in, struct future *f, int start, char *buf, const int size);
 
 /**
- * Synchronizes a list of inodes.
+ * Flushes a list of inodes to the underlying device.
  *
  * NOTE: This function will modify the order of the inodes in the list that is
  *       passed in.
