@@ -30,6 +30,7 @@ int cmd_benchmark(struct super_block *sb, struct context *c);
 int subcmd_benchmark_e2e_write(struct filesystem *fs, struct context *c);
 int subcmd_benchmark_raw_seq_read(struct filesystem *fs, struct context *c);
 int subcmd_benchmark_raw_seq_write(struct filesystem *fs, struct context *c);
+int cmd_experiment(struct super_block *sb, struct context *c);
 
 // Raw sequential read/write microbenchmarks
 void benchmark_raw_seq_read(
@@ -56,6 +57,16 @@ void benchmark_e2e_write(
   size_t num_files
 );
 
+// Experiments - run benchmarks repeatedly while varying parameters
+void experiment_e2e_write_num_blocks(
+  struct filesystem *fs,
+  struct context *c,
+  FILE *output,
+  int num_blocks_start,
+  int num_blocks_end,
+  int num_trials
+);
+
 // Benchmark utilities
 void populate_digest(
   struct bench_digest *digest,
@@ -64,5 +75,7 @@ void populate_digest(
   int num_trials
 );
 void print_digest(char *benchmark_name, struct bench_digest *digest);
+void print_digest_csv(FILE *file, struct bench_digest *digest);
+void print_digest_header_csv(FILE *file);
 
 #endif
