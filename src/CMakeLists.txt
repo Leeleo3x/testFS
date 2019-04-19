@@ -12,6 +12,7 @@ set(testFSCommon
   dir.c
   file.c
   inode.c
+  inode_alternate_async.c
   super.c
   tx.c
 )

@@ -16,7 +16,7 @@ void testfs_put_csum_async(
   struct super_block *sb, struct future *f, int phy_block_nr, int csum);
 
 /**
- * Sets the in-memory checksum for the given physical block number.
+ * Sets the in-memory checksum for the given physical data block number.
  *
  * The caller is responsible for ensuring the in-memory checksum table is
  * flushed to the underlying device.
@@ -26,6 +26,6 @@ void testfs_set_csum(struct super_block *sb, int phy_block_nr, int csum);
 /**
  * Flushes all dirty checksum blocks to the underlying device.
  */
-void testfs_bulk_csum_flush_async(struct super_block *sb, struct future *f);
+void testfs_flush_csum_async(struct super_block *sb, struct future *f);
 
 #endif /* _CSUM_H */
