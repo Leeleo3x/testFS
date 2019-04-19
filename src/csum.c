@@ -120,3 +120,21 @@ void testfs_flush_csum_async(struct super_block *sb, struct future *f) {
     sb->csum_block_dirty[csum_block_nr] = false;
   }
 }
+
+void testfs_flush_csum(struct super_block *sb) {
+  char *table = (char *)sb->csum_table;
+
+  for (int csum_block_nr = 0;
+      csum_block_nr < CSUM_TABLE_SIZE; csum_block_nr++) {
+    if (!(sb->csum_block_dirty[csum_block_nr])) {
+      continue;
+    }
+    write_blocks(
+      sb,
+      table + (csum_block_nr * BLOCK_SIZE),
+      sb->sb.csum_table_start + csum_block_nr,
+      1
+    );
+    sb->csum_block_dirty[csum_block_nr] = false;
+  }
+}

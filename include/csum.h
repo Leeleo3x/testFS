@@ -28,4 +28,9 @@ void testfs_set_csum(struct super_block *sb, int phy_block_nr, int csum);
  */
 void testfs_flush_csum_async(struct super_block *sb, struct future *f);
 
+/**
+ * Flushes all dirty checksum blocks to the underlying device synchronously.
+ */
+void testfs_flush_csum(struct super_block *sb);
+
 #endif /* _CSUM_H */

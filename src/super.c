@@ -340,3 +340,12 @@ void testfs_flush_block_freemap_async(
     BLOCK_FREEMAP_SIZE
   );
 }
+
+void testfs_flush_block_freemap(struct super_block *sb) {
+  write_blocks(
+    sb,
+    bitmap_getdata(sb->block_freemap),
+    sb->sb.block_freemap_start,
+    BLOCK_FREEMAP_SIZE
+  );
+}
