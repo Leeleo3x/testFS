@@ -1,4 +1,5 @@
 #include "bench.h"
+#include <stdio.h>
 
 #define M_MIN(X, Y) ((X) < (Y) ? (X) : (Y))
 #define M_MAX(X, Y) ((X) > (Y) ? (X) : (Y))
@@ -59,6 +60,29 @@ void print_digest(
   printf("\n");
 }
 
+void print_digest_header_csv(FILE *file) {
+  fprintf(
+    file,
+    "%s%s",
+    "trials,sync_min_us,sync_max_us,sync_avg_us,",
+    "async_min_us,async_max_us,async_avg_us"
+  );
+}
+
+void print_digest_csv(FILE *file, struct bench_digest *digest) {
+  fprintf(
+    file,
+    "%d,%lld,%lld,%.6f,%lld,%lld,%.6f",
+    digest->trials,
+    digest->sync.min_us,
+    digest->sync.max_us,
+    digest->sync.avg_us,
+    digest->async.min_us,
+    digest->async.max_us,
+    digest->async.avg_us
+  );
+}
+
 /**
  * Run microbenchmarks on the file system.
  *
@@ -85,4 +109,25 @@ int cmd_benchmark(struct super_block *sb, struct context *c) {
     printf("Unknown benchmark: '%s'\n", c->cmd[1]);
     return -EINVAL;
   }
+}
+
+/**
+ * Runs experiments.
+ *
+ * NOTE: Experiment parameters are hardcoded so that results can be easily
+ *       reproduced.
+ */
+int cmd_experiment(struct super_block *sb, struct context *c) {
+  struct filesystem *fs = sb->fs;
+
+  FILE *csv = fopen("e2e_write_num_blocks.csv", "a");
+  experiment_e2e_write_num_blocks(
+    fs,
+    c,
+    csv,
+    1,   // num_blocks_start
+    110, // num_blocks_end
+    5    // num_trials
+  );
+  fclose(csv);
 }

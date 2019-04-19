@@ -164,3 +164,38 @@ void benchmark_e2e_write(
 
   populate_digest(digest, results_sync_us, results_async_us, num_trials);
 }
+
+/**
+ * This experiment varies the number of blocks written to a single file.
+ */
+void experiment_e2e_write_num_blocks(
+  struct filesystem *fs,
+  struct context *c,
+  FILE *output,
+  int num_blocks_start,
+  int num_blocks_end,
+  int num_trials
+) {
+  if (!(num_blocks_start <= num_blocks_end)) {
+    return;
+  }
+
+  fprintf(output, "num_blocks,");
+  print_digest_header_csv(output);
+  fprintf(output, "\r\n");
+
+  struct bench_digest digest;
+  for (int num_blocks = num_blocks_start;
+      num_blocks <= num_blocks_end; num_blocks++) {
+    size_t size = num_blocks * BLOCK_SIZE;
+    // NOTE: We don't care about the file contents
+    char *content = malloc(size);
+    benchmark_e2e_write(
+      fs, c, &digest, content, size, num_trials, /* num_files */ 1);
+    free(content);
+
+    fprintf(output, "%d,", num_blocks);
+    print_digest_csv(output, &digest);
+    fprintf(output, "\r\n");
+  }
+}

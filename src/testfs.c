@@ -115,6 +115,11 @@ static struct {
         MAX_ARGS,
     },
     {
+        "run-experiments",
+        cmd_experiment,
+        MAX_ARGS,
+    },
+    {
         "quit",
         cmd_quit,
         1,
@@ -124,7 +129,7 @@ static struct {
 // These commands are the only commands that can be executed
 // if a file system does not exist (i.e. the user has not run mkfs)
 static const char *non_fs_commands[] =
-  {"?", "quit", "mkfs", "bench", NULL};
+  {"?", "quit", "mkfs", "bench", "run-experiments", NULL};
 
 static bool fs_exists(struct context *c) {
   return testfs_inode_get_type(c->cur_dir) == I_DIR;
