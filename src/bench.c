@@ -5,6 +5,7 @@
 #include "async.h"
 #include "dir.h"
 #include "block.h"
+#include "csum.h"
 
 #define FOR(limit, expr) {for (size_t i = 0; i < (limit); i++) { (expr); }}
 
@@ -96,6 +97,7 @@ static void benchmark_async_writes(
   );
   testfs_bulk_sync_inode_async(file_inodes, num_files, &f);
   testfs_flush_block_freemap_async(fs->sb, &f);
+  testfs_bulk_csum_flush_async(fs->sb, &f);
   spin_wait(&f);
   testfs_tx_commit(fs->sb, TX_WRITE);
 

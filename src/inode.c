@@ -667,6 +667,7 @@ int testfs_check_inode(struct super_block *sb, struct bitmap *b_freemap,
   for (i = 0; i < NR_INDIRECT_BLOCKS; i++) {
     int block_nr = ((int *)block)[i];
     if (block_nr == 0) return size;
+    testfs_verify_csum(sb, block_nr);
     size += BLOCK_SIZE;
     block_nr -= sb->sb.data_blocks_start;
     bitmap_mark(b_freemap, block_nr);
@@ -764,6 +765,8 @@ static int testfs_file_write_block_async(
   }
 
   write_blocks_async(in->sb, DATA_REACTOR, f, buf, phy_block_nr, 1);
+  testfs_set_csum(
+    in->sb, phy_block_nr, testfs_calculate_csum(buf, BLOCK_SIZE));
   return 0;
 }
 
@@ -847,8 +850,6 @@ int testfs_write_data_alternate_async(
       RETURN_IF_NEG(testfs_file_write_block_async(in, f, log_block_end, tail));
     }
   }
-
-  // 6. Compute and store the checksums (SKIP for now)
 
   in->in.i_size = MAX(in->in.i_size, start + size);
   in->i_flags |= I_FLAGS_DIRTY;
