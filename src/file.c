@@ -5,6 +5,7 @@
 #include "stdio.h"
 #include "stdint.h"
 #include "async.h"
+#include "inode_alternate.h"
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 

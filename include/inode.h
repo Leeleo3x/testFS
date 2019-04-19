@@ -61,27 +61,4 @@ int testfs_write_data(struct inode *in, int start, char *name, const int size);
 int testfs_inode_to_block_offset(struct inode *in);
 int testfs_inode_to_block_nr(struct inode *in);
 
-/**
- * Writes data to the file represented by the given inode asynchronously
- * (alternate implementation).
- *
- * When this function returns, the writes to the underlying device may not have
- * completed. However this function guarantees that, after returning, it is
- * safe to issue additional write requests.
- *
- * To wait for the writes to complete, the caller should wait on the provided
- * future.
- */
-int testfs_write_data_alternate_async(
-    struct inode *in, struct future *f, int start, char *buf, const int size);
-
-/**
- * Flushes a list of inodes to the underlying device.
- *
- * NOTE: This function will modify the order of the inodes in the list that is
- *       passed in.
- */
-void testfs_bulk_sync_inode_async(
-    struct inode *inodes[], size_t num_inodes, struct future *f);
-
 #endif /* _INODE_H */
