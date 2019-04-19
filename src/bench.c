@@ -6,6 +6,7 @@
 #include "dir.h"
 #include "block.h"
 #include "csum.h"
+#include "inode_alternate.h"
 
 #define FOR(limit, expr) {for (size_t i = 0; i < (limit); i++) { (expr); }}
 

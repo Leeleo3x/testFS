@@ -13,6 +13,8 @@ set(testFSCommon
   file.c
   inode.c
   inode_alternate_async.c
+  inode_alternate_common.c
+  inode_alternate_sync.c
   super.c
   tx.c
 )
