@@ -66,8 +66,11 @@ static void benchmark_sync_writes(
   );
 
   testfs_tx_start(fs->sb, TX_WRITE);
-  FOR(num_files, testfs_write_data(file_inodes[i], 0, content, size));
-  FOR(num_files, testfs_sync_inode(file_inodes[i]));
+  FOR(
+    num_files, testfs_write_data_alternate(file_inodes[i], 0, content, size));
+  testfs_bulk_sync_inode(file_inodes, num_files);
+  testfs_flush_block_freemap(fs->sb);
+  testfs_flush_csum(fs->sb);
   testfs_tx_commit(fs->sb, TX_WRITE);
 
   FOR(num_files, testfs_put_inode(file_inodes[i]));
