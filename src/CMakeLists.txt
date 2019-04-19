@@ -7,6 +7,8 @@ link_directories(${SPDK_DIR}/dpdk/build/lib)
 set(testFSCommon
   async.c
   bench.c
+  bench_e2e.c
+  bench_raw.c
   bitmap.c
   csum.c
   dir.c
