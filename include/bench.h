@@ -66,6 +66,29 @@ void experiment_e2e_write_num_blocks(
   int num_blocks_end,
   int num_trials
 );
+void experiment_e2e_write_num_files(
+  struct filesystem *fs,
+  struct context *c,
+  FILE *output,
+  int num_files_start,
+  int num_files_end,
+  int num_blocks,
+  int num_trials
+);
+void experiment_raw_seq_read(
+  struct filesystem *fs,
+  FILE *output,
+  int num_blocks_start,
+  int num_blocks_end,
+  int num_trials
+);
+void experiment_raw_seq_write(
+  struct filesystem *fs,
+  FILE *output,
+  int num_blocks_start,
+  int num_blocks_end,
+  int num_trials
+);
 
 // Benchmark utilities
 void populate_digest(
@@ -77,5 +100,6 @@ void populate_digest(
 void print_digest(char *benchmark_name, struct bench_digest *digest);
 void print_digest_csv(FILE *file, struct bench_digest *digest);
 void print_digest_header_csv(FILE *file);
+char *get_random_bytes(size_t size);
 
 #endif

@@ -1,8 +1,19 @@
 #include "bench.h"
+#include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 
 #define M_MIN(X, Y) ((X) < (Y) ? (X) : (Y))
 #define M_MAX(X, Y) ((X) > (Y) ? (X) : (Y))
+
+#define EXPERIMENT(name, expr) ({ \
+  printf("Running %s...\n", (name));   \
+  char filename[1024];                 \
+  sprintf(filename, "%s.csv", (name)); \
+  FILE *csv = fopen((filename), "a");  \
+  (expr);                              \
+  fclose(csv);                         \
+})
 
 void populate_digest(
   struct bench_digest *digest,
@@ -83,6 +94,14 @@ void print_digest_csv(FILE *file, struct bench_digest *digest) {
   );
 }
 
+char *get_random_bytes(size_t size) {
+  char *buf = malloc(size);
+  for (size_t i = 0; i < size; i++) {
+    buf[i] = rand();
+  }
+  return buf;
+}
+
 /**
  * Run microbenchmarks on the file system.
  *
@@ -119,15 +138,50 @@ int cmd_benchmark(struct super_block *sb, struct context *c) {
  */
 int cmd_experiment(struct super_block *sb, struct context *c) {
   struct filesystem *fs = sb->fs;
+  int num_trials = 5;
+  srand(time(NULL));
 
-  FILE *csv = fopen("e2e_write_num_blocks.csv", "a");
-  experiment_e2e_write_num_blocks(
-    fs,
-    c,
-    csv,
-    1,   // num_blocks_start
-    110, // num_blocks_end
-    5    // num_trials
+  EXPERIMENT(
+    "raw_seq_read", experiment_raw_seq_read(fs, csv, 1, 200, num_trials));
+
+  EXPERIMENT(
+    "raw_seq_write", experiment_raw_seq_write(fs, csv, 1, 200, num_trials));
+
+  EXPERIMENT(
+    "e2e_write_num_blocks",
+    experiment_e2e_write_num_blocks(
+      fs,
+      c,
+      csv,
+      1,   // num_blocks_start
+      110, // num_blocks_end
+      num_trials
+    )
   );
-  fclose(csv);
+
+  EXPERIMENT(
+    "e2e_write_num_files_100bl",
+    experiment_e2e_write_num_files(
+      fs,
+      c,
+      csv,
+      1,   // num_files_start
+      50,  // num_files_end
+      100, // num_blocks
+      num_trials
+    )
+  );
+
+  EXPERIMENT(
+    "e2e_write_num_files_10bl",
+    experiment_e2e_write_num_files(
+      fs,
+      c,
+      csv,
+      1,   // num_files_start
+      50,  // num_files_end
+      10,  // num_blocks
+      num_trials
+    )
+  );
 }
