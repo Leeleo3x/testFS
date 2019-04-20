@@ -126,3 +126,47 @@ void benchmark_raw_seq_write(
 
   populate_digest(digest, results_sync_us, results_async_us, num_trials);
 }
+
+void experiment_raw_seq_write(
+  struct filesystem *fs,
+  FILE *output,
+  int num_blocks_start,
+  int num_blocks_end,
+  int num_trials
+) {
+  fprintf(output, "num_blocks,");
+  print_digest_header_csv(output);
+  fprintf(output, "\r\n");
+
+  struct bench_digest digest;
+  for (int num_blocks = num_blocks_start;
+      num_blocks <= num_blocks_end; num_blocks++) {
+    benchmark_raw_seq_write(fs, &digest, num_trials, num_blocks);
+
+    fprintf(output, "%d,", num_blocks);
+    print_digest_csv(output, &digest);
+    fprintf(output, "\r\n");
+  }
+}
+
+void experiment_raw_seq_read(
+  struct filesystem *fs,
+  FILE *output,
+  int num_blocks_start,
+  int num_blocks_end,
+  int num_trials
+) {
+  fprintf(output, "num_blocks,");
+  print_digest_header_csv(output);
+  fprintf(output, "\r\n");
+
+  struct bench_digest digest;
+  for (int num_blocks = num_blocks_start;
+      num_blocks <= num_blocks_end; num_blocks++) {
+    benchmark_raw_seq_read(fs, &digest, num_trials, num_blocks);
+
+    fprintf(output, "%d,", num_blocks);
+    print_digest_csv(output, &digest);
+    fprintf(output, "\r\n");
+  }
+}

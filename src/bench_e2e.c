@@ -189,7 +189,7 @@ void experiment_e2e_write_num_blocks(
       num_blocks <= num_blocks_end; num_blocks++) {
     size_t size = num_blocks * BLOCK_SIZE;
     // NOTE: We don't care about the file contents
-    char *content = malloc(size);
+    char *content = get_random_bytes(size);
     benchmark_e2e_write(
       fs, c, &digest, content, size, num_trials, /* num_files */ 1);
     free(content);
@@ -198,4 +198,38 @@ void experiment_e2e_write_num_blocks(
     print_digest_csv(output, &digest);
     fprintf(output, "\r\n");
   }
+}
+
+/**
+ * This experiment varies the number of files written in a single transaction.
+ */
+void experiment_e2e_write_num_files(
+  struct filesystem *fs,
+  struct context *c,
+  FILE *output,
+  int num_files_start,
+  int num_files_end,
+  int num_blocks,
+  int num_trials
+) {
+  fprintf(output, "num_files,");
+  print_digest_header_csv(output);
+  fprintf(output, "\r\n");
+
+  struct bench_digest digest;
+  size_t size = num_blocks * BLOCK_SIZE;
+  // NOTE: We don't care about the file contents
+  char *content = get_random_bytes(size);
+
+  for (int num_files = num_files_start;
+      num_files <= num_files_end; num_files++) {
+    benchmark_e2e_write(
+      fs, c, &digest, content, size, num_trials, num_files);
+
+    fprintf(output, "%d,", num_files);
+    print_digest_csv(output, &digest);
+    fprintf(output, "\r\n");
+  }
+
+  free(content);
 }
