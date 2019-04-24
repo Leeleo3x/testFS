@@ -55,6 +55,9 @@
 % to be able to draw some self-contained figs
 \usepackage{tikz}
 \usepackage{amsmath}
+\usepackage{graphicx}
+\apptocmd{\thebibliography}{\raggedright}{}{}
+\graphicspath{ {./figures/} }
 
 \begin{document}
 
@@ -75,6 +78,7 @@ University of Toronto
 
 \maketitle
 
+\thispagestyle{empty}
 \input{sections/0-abstract}
 \input{sections/1-introduction}
 \input{sections/2-background}

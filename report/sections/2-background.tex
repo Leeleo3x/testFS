@@ -1,26 +1,55 @@
 \section{Background}
-Nullam in tellus~\cite{testfs} neque. Pellentesque ut volutpat libero, eget
-ultrices justo.  Praesent nec tincidunt metus. Vestibulum ante ipsum primis in
-faucibus orci luctus et ultrices posuere cubilia Curae; Sed rutrum ipsum
-pellentesque nunc vehicula venenatis. Fusce non ante congue, ultrices ante
-vitae, lacinia quam.  Vivamus in viverra ligula. Cras consectetur justo eros,
-at congue nunc ornare sit amet. Curabitur risus nisl, pretium porttitor mi eu,
-vehicula vulputate mauris. Morbi accumsan nulla ut magna euismod viverra.
-Praesent porttitor dapibus massa, sed convallis nisi fermentum a. Integer
-dapibus, lectus et placerat molestie, eros diam maximus velit, eu cursus nisi
-arcu eget est. Nam non justo viverra, varius lorem nec, pulvinar purus.
-Vestibulum a odio ultricies purus gravida fermentum eget a ante. Donec sagittis
-sapien at laoreet convallis.
 
-Donec ut blandit tortor, et feugiat orci. Nunc rutrum enim eget est porttitor,
-eu eleifend nisi imperdiet. Fusce ac turpis ac est congue iaculis. Cras dictum
-semper nisl elementum pharetra. Sed vel libero efficitur, elementum libero non,
-congue metus. Praesent vehicula scelerisque diam, et hendrerit elit mollis
-feugiat. Aliquam quis magna nulla. Quisque facilisis sapien vel velit auctor, a
-gravida leo placerat. Cras vulputate, ligula nec vehicula faucibus, erat erat
-semper lorem, a mattis lectus erat in nulla. Proin ut viverra dolor, sit amet
-viverra diam. Sed nec dignissim nibh, id faucibus purus. Fusce sed diam
-bibendum, ornare ipsum sit amet, auctor sapien. Donec non pretium nisi. Quisque
-ultricies diam mi, ac iaculis justo tempor in. Vivamus vestibulum risus velit,
-vitae consectetur purus porta at. Ut maximus mollis magna, et cursus arcu
-pulvinar ut.
+In this section we present the background of NVMe interface and SPDK 
+framework.
+
+\subsection{NVMe and I/O Queue}
+
+NVMe~\cite{nvme} is an open interface specification designed to allow host
+software to communicate with a non-volatile memory subsystem (NVM) via a 
+peripheral component interconnect express (PCIe) bus. Previous standards
+such as serial-attacked SCSI and serial advanced technology attachment
+can handle queue depths of 254 and 32 respectively. NVMe is able to 
+handle queue depths of up to 65535 I/O queues with up to 64 Ki outstanding
+commands per I/O queue, which allows an NVMe device to support parallel
+operations. An I/O queue is composed of a submission queue and a completion
+queue. Host software issues I/O commands to a submission queue and completions
+are placed into the associated completion queue by the controller. Note that
+the order of completions is not determined by the submission oder of the commands.
+
+\subsection{SPDK and Block Devices}
+
+SPDK~\cite{spdk} is an open source library that allows developer to implement
+high performance, scalable, user-mode storage applications. A block device 
+in SPDK is an abstraction of all block devices, where I/O commands are 
+processed and issued to corresponding physical block devices such as NVMe 
+devices and Malloc devices. SPDK provides a event framework, where  
+different threads to exchange data through passing messages to one another.
+It allows a user to build asynchronous, lockless, and high performance
+applications.
+
+\begin{figure}[t]
+  \includegraphics[width=\linewidth]{spdk_arch}
+  \caption{Example of an SPDK application.}
+  \label{fig:spdk_arch}
+\end{figure}
+
+For each thread, SPDK uses an io channel to represent the channel for accessing an 
+I/O device. I/O requests issued to the block device will be forwarded to the underlying
+physical device. In our implementation, io channel corresponds to I/O queue 
+of the underlying NVMe device, the framework builds I/O commands based on I/O 
+requests and submits them to submission queue. It then polls for I/O completion
+on each queue pair with outstanding I/O to receive completion callbacks.  
+Figure~\ref{fig:spdk_arch} provides a graphical
+representation of a host application using SPDK block devices to interact with
+an NVMe device. In the host application, each thread submit I/O requests to its
+corresponding I/O channel and the I/O channel forward the I/O requests to the 
+actual physical device based on the implementation of the physical block device.
+The framework invokes the callback function when the I/O request is finished.
+
+\subsection{TestFS}
+TestFS\cite{testfs} is a user space file system which is similar to EXT3, a
+journaled file system that is commonly used by the Linux kernel. TestFS
+has three levels of indirections. A super block points to meta data and inode 
+block for root directory. Inode blocks point to indirect inode blocks or 
+data blocks.
