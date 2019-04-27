@@ -51,3 +51,6 @@ mktestfs
 # ctags
 tags
 build/
+
+# macOS
+.DS_Store
