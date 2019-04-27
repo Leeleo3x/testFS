@@ -1,1 +1,27 @@
 \section{Project Overview}
+In this section we provide an overview of our project by enumerating our goals,
+describing the primary challenges we faced, and highlighting the key ideas
+behind our approach to addressing these challenges to meet our goals.
+
+\subsection{Project Goals}
+The high level goal of our project is to explore the feasibility and
+performance implications of enabling parallel access to NVMe storage devices in
+a user space file system. We work toward this goal by integrating SPDK with
+testFS. More concretely, in our project we aim to:
+
+\begin{enumerate}
+  \item Demonstrate the feasibility of using SPDK to interact with NVMe devices
+    in testFS.
+  \item Modify the testFS write path to leverage the ability to make
+    asynchronous block writes with multiple threads.
+  \item Quantify the performance improvements of an asynchronous write path by
+    benchmarking our implementation.
+\end{enumerate}
+
+\subsection{Key Challenges}
+
+\paragraph{Callbacks and Synchronous Code.}
+
+\paragraph{Avoiding Lock Contention.}
+
+\subsection{Our Approach: Key Ideas}
