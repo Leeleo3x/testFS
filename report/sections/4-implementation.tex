@@ -102,7 +102,7 @@ they can work with SPDK as well. These functions were implemented by calling
 their asynchronous counterparts and then immediately waiting on the future.
 This ensures that the I/O request completes before the function returns.
 
-\subsection{Write Path Modifications}
+\subsection{Write Path Modifications}\label{sec:writepath}
 \paragraph{Motivation.}
 When we initially added asynchronous operations to file writes in testFS we
 discovered a number of inefficiencies in the code that led to repeated reads

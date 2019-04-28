@@ -1,0 +1,38 @@
+% Single File Async Writes - Throughput
+\begin{tikzpicture}[baseline]
+\begin{axis}[
+  xlabel=Number of Blocks,
+  ylabel=Throughput (KiB/s),
+  height=5cm,
+  width=8.5cm,
+  every axis plot/.append style={ultra thick},
+  legend pos=south east,
+  legend style={font=\footnotesize},
+]
+\addlegendimage{darkestblue, mark=none}
+\addlegendimage{lightblue, mark=none}
+%
+\addplot [
+  darkestblue,
+  mark=none,
+  mark options={fill=darkestblue},
+] table [
+  x=num_blocks,
+  y expr={(0.5 * \thisrow{num_blocks}) / (\thisrow{async_avg_us} / 1000000)},
+  col sep=comma,
+] {data/e2e_write_num_blocks.csv};
+%
+\addplot [
+  lightblue,
+  mark=none,
+  mark options={fill=lightblue},
+] table [
+  x=num_blocks,
+  y expr={(0.5 * \thisrow{num_blocks}) / (\thisrow{sync_avg_us} / 1000000)},
+  col sep=comma,
+] {data/e2e_write_num_blocks.csv};
+% Legend
+\addlegendentry{Async. I/O}
+\addlegendentry{Sync. I/O}
+\end{axis}
+\end{tikzpicture}

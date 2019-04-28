@@ -1,0 +1,22 @@
+% Single File Async Writes - Speedup
+\begin{tikzpicture}[baseline]
+\begin{axis}[
+  xlabel=Number of Blocks,
+  ylabel=Speedup,
+  height=5cm,
+  width=8.5cm,
+  every axis plot/.append style={ultra thick},
+]
+%
+\addplot [
+  darkestblue,
+  mark=none,
+  mark options={fill=darkestblue},
+] table [
+  x=num_blocks,
+  y expr=\thisrow{sync_avg_us} / \thisrow{async_avg_us},
+  col sep=comma,
+] {data/e2e_write_num_blocks.csv};
+%
+\end{axis}
+\end{tikzpicture}

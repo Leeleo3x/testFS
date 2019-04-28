@@ -63,6 +63,18 @@
 \apptocmd{\thebibliography}{\raggedright}{}{}
 \graphicspath{ {./figures/} }
 
+\usepackage{subcaption}
+\usepackage{pgfplots,pgfplotstable}
+\pgfplotsset{compat=1.13}
+\usepgfplotslibrary{external}
+\usepgfplotslibrary{groupplots}
+\tikzexternalize[prefix=tikz/]
+\usetikzlibrary{patterns}
+% Colours
+\definecolor{darkestblue}{RGB}{25,77,124}
+\definecolor{darkblue}{RGB}{43,118,181}
+\definecolor{lightblue}{RGB}{110,192,249}
+
 % Inline enumerated lists
 \usepackage[inline]{enumitem}
 

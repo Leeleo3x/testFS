@@ -10,16 +10,69 @@ real workloads. Through our experiments we instead aim to quantify the
 potential performance benefit for adopting multi-threaded asynchronous I/O for
 NVMe devices in production-ready user space file systems.
 
-\subsection{Experimental Setup}
+\begin{figure*}
+\begin{subfigure}[t]{0.5\linewidth}
+  \input{charts/single-file-write-speedup}
+  \caption{Single file write speedup}\label{fig:single-file-speedup}
+\end{subfigure}
+\begin{subfigure}[t]{0.5\linewidth}
+  \input{charts/single-file-write-thpt}
+  \caption{Single file write effective throughput}\label{fig:single-file-thpt}
+\end{subfigure}
+\caption{The speedup and effective write throughput when appending a varying
+number of data blocks to a single file.}
+\end{figure*}
+
+\subsection{Experimental Methodology}
+\paragraph{Setup.}
 We ran our experiments on a machine\footnote{We used {\tt mel-12}.} with a
 14-core Intel Xeon 2.40 GHz CPU and 128 GB of memory. The machine was equipped
 with two Seagate PLC Nytro 5000 NVMe SSDs. We used one of these SSDs, with a
 capcity of 400 GB, in our experiments. Our code was linked with the version of
 SPDK at git hash
 \href{https://github.com/spdk/spdk/commit/a2bf3cded37b7cc7e402eae80da90891f921b56d}{\tt a2bf3cded}.
+We used a fixed block size of 512 bytes when interacting with the SSD.
 
+\paragraph{Methodology.}
 In each experiment we measured the amount of time it took to complete a given
 task up to a granularity of microseconds. We repeated each experiment five
 times and used the average of all five trials in our results. We used primitive
 futures (described in Section~\ref{sec:futures}) as the thread synchronization
 mechanism in all of our experiments.
+
+\paragraph{Baseline.}
+In our evaluations we want to quantify the performance improvement associated
+with using asynchronous I/O requests with multiple threads on the testFS file
+write path over synchronous I/O requests. Therefore our baseline is a
+synchronous version of the testFS write path (each asynchronous I/O function
+call is replaced with its synchronous counterpart). For a fair comparison, both
+the synchronous and asynchronous write paths use our improved write path
+implementation that we describe in Section~\ref{sec:writepath}.
+
+\subsection{File Writes}
+In these experiments, we quantify the performance improvements associated with
+multi-threaded asynchronous I/O when varying the number of blocks written to a
+file and the number of files written in a single transaction. We report the
+effective write throughput, which is calculated by dividing the total size of
+the data blocks being written by the time taken to complete the experiment.
+Note that this metric excludes I/O requests made to read and write file system
+metadata, which is why it is the ``effective'' write throughput.
+
+\subsubsection{Single File Writes}
+In this experiment, we measure the time taken to append a varying number of
+data blocks to a single file in testFS. Figure~\ref{fig:single-file-thpt}
+compares the effective write throughput when asynchronous I/O is used and when
+synchronous I/O is used. Figure~\ref{fig:single-file-speedup} summarizes this
+comparison by illustrating the speedup as the number of blocks being appended
+increases.
+
+The speedup improves as the number of blocks being appended increases. This is
+likely due to two reasons:
+\begin{enumerate*}[label={(\roman*)}]
+  \item a larger number of blocks allows the device to operate closer to its
+    theoretical peak throughput, and
+  \item the cost of reading and writing the file system metadata is amortized
+    across a larger number of blocks.
+\end{enumerate*}
+Overall this experiment shows that our asynchronous write path can offer up to
+a $1.5\times$ performance improvement for single file writes.
