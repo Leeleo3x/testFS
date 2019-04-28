@@ -13,13 +13,17 @@ user level toy file system that is similar to ext3
 
 ```
 mkdir build 
+cd build
 cmake ..
 make
 ```
 
 - Setup ENV: `sudo ./LibSPDK-prefix/src/LibSPDK/scripts/setup.sh`
 
-- Run NVMe testFS: `sudo ./src/testFSSPDKExe`
+- Run NVMe testFS: 
 
-- Run FILE testFS: `./src/testFSExe filepath`
-
+```
+cd ./src
+sudo ../LibSPDK-prefix/src/LibSPDK/scripts/gen_nvme.sh > config.conf
+sudo ./testfs-bdev
+```
