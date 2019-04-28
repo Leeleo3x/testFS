@@ -65,7 +65,7 @@ file system.
 
 \paragraph{Avoiding Lock Contention.}
 To avoid lock contention, we use thread synchronization techniques that either
-\begin{enumerate*}
+\begin{enumerate*}[label={(\roman*)}]
   \item do not require locks, or
   \item have a lock per thread, to prevent contention among I/O threads.
 \end{enumerate*}

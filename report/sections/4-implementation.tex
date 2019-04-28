@@ -1,11 +1,51 @@
 \section{Implementation Details}
+To implement asynchronous writes with multiple threads in testFS, we added
+utilities to facilitate thread synchronization and we modified the file
+system's write path to make it more amenable to asynchronous writes. For a
+mapping of the key changes to the relevant source code files, please see
+Appendix~\ref{apx:codewalkthrough}.
 
 \subsection{Thread Synchronization}\label{sec:threadsync}
+In our multi-threaded architecture, the control thread needs to be able to wait
+for asynchronous I/O requests to complete. We accomplish this through thread
+synchronization using shared objects: a primitive future or several
+semaphores. We describe both approaches, however for the remainder of the
+report we only reference the primitive future technique as both synchronization
+techniques accomplish the same thing from a concurrency control standpoint.
 
 \subsubsection{Primitive Futures}
+TODO
 
 \subsubsection{Semaphores}
+TODO
 
 \subsection{Asynchronous I/O}
+To implement asynchronous I/O, we added asynchronous analogues of the {\tt
+read\_blocks()} and {\tt write\_blocks()} functions called {\tt
+read\_blocks\_async()} and {\tt write\_blocks\_async()}. These {\tt async}
+functions accept the same arguments as their synchronous counterparts. However
+callers of these {\tt async} functions also need to pass in a pointer to a
+future and the thread ID on which the I/O request should be handled. This
+allows the control thread to direct metadata block requests and data block
+requests to distinct threads.
+
+When these asynchronous read/write functions are called, the future's {\tt
+expected\_count} for the handling thread is first incremented and then the
+request is sent to the handling thread using SPDK's message passing library.
+Upon receiving this message, the handling thread then submits the I/O request
+to the underlying NVMe device using its dedicated I/O channel. When the request
+completes, a callback is executed on the handling thread. The callback function
+increments the future's {\tt count} for the handling thread to ``notify'' the
+calling thread that the request has completed. Since the I/O request is
+asynchronous, the calling thread is free to do other work while the I/O request
+is being handled. When the calling thread needs to wait for the I/O request to
+be completed it can call {\tt spin\_wait()} on the future.
+
+To be able to compare asynchronous I/O requests and synchronous I/O
+requests, we modified {\tt read\_blocks()} and {\tt write\_blocks()} so that
+they can work with SPDK as well. These functions were implemented by calling
+their asynchronous counterparts and then immediately waiting on the future.
+This ensures that the I/O request completes before the function returns.
 
 \subsection{Write Path Modifications}
+TODO
