@@ -1,2 +1,25 @@
 \section{Evaluation}
-TODO
+The goal of our evaluation is to quantify the performance improvement
+associated with using asynchronous I/O requests with multiple threads on the
+testFS file write path over synchronous I/O requests.
+
+Since testFS is a toy file system, we did not run any end-to-end file system
+benchmarks such as {\tt fio}, or Filebench~\cite{filebench-tarasov16}. As a
+result, we do not make claims as to the performance improvement associated with
+real workloads. Through our experiments we instead aim to quantify the
+potential performance benefit for adopting multi-threaded asynchronous I/O for
+NVMe devices in production-ready user space file systems.
+
+\subsection{Experimental Setup}
+We ran our experiments on a machine\footnote{We used {\tt mel-12}.} with a
+14-core Intel Xeon 2.40 GHz CPU and 128 GB of memory. The machine was equipped
+with two Seagate PLC Nytro 5000 NVMe SSDs. We used one of these SSDs, with a
+capcity of 400 GB, in our experiments. Our code was linked with the version of
+SPDK at git hash
+\href{https://github.com/spdk/spdk/commit/a2bf3cded37b7cc7e402eae80da90891f921b56d}{\tt a2bf3cded}.
+
+In each experiment we measured the amount of time it took to complete a given
+task up to a granularity of microseconds. We repeated each experiment five
+times and used the average of all five trials in our results. We used primitive
+futures (described in Section~\ref{sec:futures}) as the thread synchronization
+mechanism in all of our experiments.
