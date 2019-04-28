@@ -48,4 +48,39 @@ their asynchronous counterparts and then immediately waiting on the future.
 This ensures that the I/O request completes before the function returns.
 
 \subsection{Write Path Modifications}
-TODO
+\paragraph{Motivation.}
+When we initially added asynchronous operations to file writes in testFS we
+discovered a number of inefficiencies in the code that led to repeated reads
+and writes of the same physical blocks. In the existing implementation:
+\begin{enumerate*}[label={(\roman*)}]
+  \item an entire bitmap block is flushed to the underlying device each time a
+    single block is allocated;
+  \item entire checksum blocks are flushed for each modified checksum;
+  \item an entire inode block is flushed for each modified inode;
+  \item inode indirect blocks are read, modified, and written to the underlying
+    device for every block appended to the file.
+\end{enumerate*}
+Since a write transaction in testFS may consist of writing multiple blocks to
+more than one file, issuing entire metadata block writes for each modified data
+block results in unnecessary write amplification because a single metadata
+block may contain metadata for multiple data blocks. We discovered that these
+inefficiencies led to poor performance even in our asynchronous implementation.
+This led us to reimplement the file write path in testFS.
+
+\paragraph{Bulk Metadata Flushes.}
+We made the observation that metadata such as block checksums, the data
+block freemap, and ``opened'' inodes are cached in-memory. As a result, it is
+unnecessary to flush modified metadata blocks to the underlying device each
+time a new data block is appended to a file. We modified the file write
+implementation to instead keep track of the dirty cached metadata blocks and
+then flush them all together in bulk at the end of a transaction. This approach
+ensured that a metadata block is written to the underlying device at most once
+per transaction.
+
+\paragraph{In-Memory Indirect Blocks.}
+We reduced the number of extra reads and writes of an inode's indirect block by
+keeping a copy of the indirect block in memory. The indirect block is loaded
+into memory lazily (i.e. when it is first requested). This allows subsequent
+reads and writes to the indirect block to be made to the copy stored in-memory.
+The modified indirect block is flushed to the underlying device together with
+the in-memory copy of the inode.
