@@ -1,7 +1,8 @@
 \section{Background}
 
 In this section we present the background of NVMe interface and SPDK 
-framework.
+framework. We also present testFS, a user space file system that our 
+file system is based on.
 
 \subsection{NVMe and I/O Queue}
 
@@ -53,7 +54,7 @@ The framework invokes the callback function when the I/O request is finished.
 TestFS\cite{testfs} is a user space file system which is similar to EXT3, a
 journaled file system that is commonly used by the Linux kernel. TestFS
 has three levels of indirections, which is illustrated in Figure~\ref{fig:testfs}.
-A super block points to meta data and inode block of the root directory. 
+A super block points to meta data and an inode block of the root directory. 
 The meta data store the freemap of blocks as well as the checksum of the data blocks.
 Inode blocks point to data blocks where the actual data are stored. In testFS, both 
 directory data and indirect inode data are stored in data blocks. The
