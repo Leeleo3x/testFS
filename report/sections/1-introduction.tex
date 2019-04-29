@@ -1,19 +1,52 @@
 \section{Introduction}
-Lorem ipsum~\cite{spdk} dolor sit amet, consectetur adipiscing elit.
-Suspendisse egestas arcu sit amet libero imperdiet fringilla. Nunc tempus
-libero vitae sapien pretium, id gravida tortor vestibulum. Suspendisse ut velit
-sed mi vehicula sollicitudin eu quis urna. Nulla sed libero eu enim fringilla
-eleifend ac at augue. Vestibulum ante ipsum primis in faucibus orci luctus et
-ultrices posuere cubilia Curae; Nunc et dapibus turpis. Vestibulum fringilla
-nibh a enim tempus lobortis. Ut posuere risus eu mi consequat, eget pretium
-nibh varius.
+The emergence of the non-volatile memory express (NVMe) specification coupled
+with faster solid state storage devices (SSDs) have together paved the way for
+new opportunities to improve the performance of storage applications such as
+file systems. In particular, the NVMe specification opens up new opportunities
+for increased parallelism by giving applications parallel access to the
+underlying storage device through multiple I/O queues.
 
-Donec maximus purus nec elit dapibus ultricies nec vitae mi. Pellentesque vel
-turpis vitae mi sodales volutpat. Nullam vehicula neque eu ipsum pretium, eget
-aliquet nibh convallis. Proin iaculis, tortor pulvinar ultrices dictum, magna
-massa imperdiet arcu, ac bibendum velit arcu eu odio. Vivamus vitae lectus
-porta, tristique diam eu, vestibulum dolor. Maecenas dapibus porttitor cursus.
-Nunc vel quam eu mi fringilla congue. Vestibulum fermentum sagittis arcu, ut
-pharetra eros eleifend nec. Nam nisl augue, efficitur in porta eget, dapibus
-eget mauris. Vivamus sit amet sapien faucibus, elementum odio et, pulvinar
-purus.
+Unfortunately, many file systems today are not designed to take advantage of
+these opportunities. Many file systems today
+\begin{enumerate*}[label={(\roman*)}]
+  \item reside in kernel space, which results in needing slow context switches
+    when interacting with the file system;
+  \item use locks to coordinate access to shared data, which limits their
+    scalability;
+  \item are not written to take advantage of the parallelism exposed by NVMe.
+\end{enumerate*}
+How should next generation file systems be designed to leverage the potential
+performance improvements offered by NVMe storage devices?
+
+We take a first step towards answering this question by extending an existing
+user space file system to support NVMe storage devices with the goal of
+quantifying the potential performance benefit of NVMe-designed file systems.
+Specifically we integrate testFS (a toy user space file system) with SPDK (a
+user space lockless driver for NVMe devices) and we modify the file system's
+write path to support multi-threaded asynchronous I/O as a proof of concept.
+
+The key idea in our design is to use a multi-threaded architecture to allow
+different types of I/O requests to be submitted to and queued on the underlying
+device in parallel. This approach enables us to improve the performance of the
+file system's write path by submitting asynchronous I/O requests for file
+system metadata (e.g. inodes) and data in parallel by using different threads.
+
+We benchmark our implementation and show that it can offer up to a $1.5\times$
+improvement on single file writes and up to a $3\times$ improvement on
+multi-file single transaction writes when compared to synchronous
+single-threaded I/O.
+
+\vspace{1em}
+\noindent
+In summary, our project makes the following contributions:
+\begin{itemize}
+  \item We propose a method to support multi-threaded asynchronous read and
+    write requests on an NVMe SSD that can be implemented alongside existing
+    synchronous code.
+  \item We implement a proof of concept of our design by integrating testFS
+    with SPDK: a user space, lockless, polled driver for NVMe devices.
+  \item We benchmark our implementation and show that our design offers up to a
+    $1.5\times$ improvement for single file writes and up to a $3\times$
+    improvement for multi-file single transaction writes when compared to
+    synchronous single-threaded I/O.
+\end{itemize}
