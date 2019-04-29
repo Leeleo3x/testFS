@@ -28,8 +28,9 @@ different threads to exchange data through passing messages to one another.
 It allows a user to build asynchronous, lockless, and high performance
 applications.
 
-\begin{figure}[t]
-  \includegraphics[width=\linewidth]{spdk_arch}
+\begin{figure}
+  \centering
+  \includegraphics[height=6cm]{spdk_arch}
   \caption{Example of an SPDK application.}
   \label{fig:spdk_arch}
 \end{figure}
@@ -49,11 +50,6 @@ The framework invokes the callback function when the I/O request is finished.
 
 \subsection{TestFS}
 
-\begin{figure}[t]
-  \includegraphics[width=\linewidth]{testfs}
-  \caption{The layout of blocks with different types in testFS.}
-  \label{fig:testfs}
-\end{figure}
 TestFS\cite{testfs} is a user space file system which is similar to EXT3, a
 journaled file system that is commonly used by the Linux kernel. TestFS
 has three levels of indirections, which is illustrated in Figure~\ref{fig:testfs}.
@@ -67,3 +63,10 @@ life cycle of testFS.
 Note that our file system is based on testFS because testFS is well maintained, user
 level, and well documented file system, that allows us to build a proof of concept
 quickly. We believe our modifications to testFS can be applied to most of file systems.
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[height=3cm]{testfs}
+  \caption{The layout of blocks with different types in testFS.}
+  \label{fig:testfs}
+\end{figure}
