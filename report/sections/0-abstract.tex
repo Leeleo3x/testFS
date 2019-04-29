@@ -1,10 +1,28 @@
 \begin{abstract}
-  Non-volatile memory express (NVMe) based solid state devices has undergone tremendous innovation and
-  the performance of storage devices has been increasing significantly. However the current design of
-  file systems impedes utilizing the full performance of NVMe storage devices.
+Non-volatile memory express (NVMe) based solid state devices have undergone
+tremendous innovation, leading to significant increases in performance.
+However file systems have been slow to keep up; in many cases their design
+impedes their ability to leverage the full performance offered by NVMe storage
+devices. For example, many file systems today:
+\begin{enumerate*}[label={(\roman*)}]
+  \item reside in kernel space, which results in needing slow context switches
+    when interacting with the file system;
+  \item use locks to coordinate access to shared data, which limits their
+    scalability;
+  \item are not written to take advantage of the parallelism exposed by NVMe.
+\end{enumerate*}
+How should next generation file systems be designed to leverage the performance
+offered by NVMe storage devices?
 
-  In this report, we present a user level filesystem designed for NVMe storage devices which improve
-  the performance by writing different types of blocks in parallel. Our experimental results highlight 
-  the effectiveness of using asynchronous I/O write path in improving performance on both single 
-  file writes and multi-file writes.
+In our project, we take a first step towards answering this question by
+extending an existing user space file system to support NVMe storage devices by
+using SPDK---a user space, polled, lockless NVMe device driver. The key idea
+behind our design is to use a multi-threaded architecture to be able to submit
+asynchronous I/O requests for different types of file system blocks (e.g.
+metadata versus data) in parallel.
+
+Through experiments, we show that our multi-threaded asynchronous write
+path is able to offer up to a $1.5\times$ improvement for single file writes
+and up to a $3\times$ improvement for multi-file single transaction writes when
+compared to a write path implemented with synchronous I/O.
 \end{abstract}
