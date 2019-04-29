@@ -1,0 +1,36 @@
+% Raw read/write sequential speedups
+\begin{tikzpicture}[baseline]
+\begin{axis}[
+  xlabel=Number of Blocks,
+  ylabel=Speedup,
+  height=5cm,
+  width=8cm,
+  every axis plot/.append style={ultra thick},
+  legend style={font=\footnotesize,at={(0.97,0.5)},anchor=east},
+]
+\addlegendimage{darkestblue, mark=none}
+\addlegendimage{lightblue, mark=none}
+%
+\addplot [
+  darkestblue,
+  mark=none,
+] table [
+  x=num_blocks,
+  y expr=\thisrow{sync_avg_us} / \thisrow{async_avg_us},
+  col sep=comma,
+] {data/raw_seq_read.csv};
+%
+\addplot [
+  lightblue,
+  mark=none,
+] table [
+  x=num_blocks,
+  y expr=\thisrow{sync_avg_us} / \thisrow{async_avg_us},
+  col sep=comma,
+] {data/raw_seq_write.csv};
+%
+% Legend
+\addlegendentry{Sequential Reads}
+\addlegendentry{Sequential Writes}
+\end{axis}
+\end{tikzpicture}
