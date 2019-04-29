@@ -1,2 +1,14 @@
 \section{Conclusion}
-TODO
+The goal of this work was to explore the feasibility of using SPDK to interact
+with NVMe as well as to quantify the potential performance benefits of a file
+system designed for NVMe-based devices. To that end, we extended testFS---a
+user space file system---to support NVMe devices by using SPDK. To leverage the
+parallelism offered by NVMe devices, our key idea was to adopt a multi-threaded
+architecture to be able to submit asynchronous I/O requests for different types
+of data (e.g. inodes versus data) in parallel by using distinct threads. We
+used this design to modify the testFS write path. Our experiments showed that
+our design offered up to a $1.5\times$ improvement for single file writes and
+up to a $3\times$ improvement for multi-file writes when compared to a write
+path that used synchronous I/O. Our hope is that this work helps inspire the
+design of the next generation of file systems that are specifically designed to
+leverage the performance offered by NVMe devices.
