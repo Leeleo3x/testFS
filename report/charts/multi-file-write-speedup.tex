@@ -1,0 +1,37 @@
+% Multi File Async Writes - Speedup
+\begin{tikzpicture}[baseline]
+\begin{axis}[
+  xlabel=Number of Files,
+  ylabel=Speedup,
+  height=4.5cm,
+  width=8.5cm,
+  every axis plot/.append style={ultra thick},
+  legend pos=south east,
+  legend style={font=\footnotesize},
+]
+\addlegendimage{darkestblue, mark=none}
+\addlegendimage{lightblue, mark=none}
+%
+\addplot [
+  darkestblue,
+  mark=none,
+] table [
+  x=num_files,
+  y expr=\thisrow{sync_avg_us} / \thisrow{async_avg_us},
+  col sep=comma,
+] {data/e2e_write_num_files_100bl.csv};
+%
+\addplot [
+  lightblue,
+  mark=none,
+] table [
+  x=num_files,
+  y expr=\thisrow{sync_avg_us} / \thisrow{async_avg_us},
+  col sep=comma,
+] {data/e2e_write_num_files_10bl.csv};
+%
+% Legend
+\addlegendentry{100 Data Blocks}
+\addlegendentry{10 Data Blocks}
+\end{axis}
+\end{tikzpicture}

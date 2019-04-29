@@ -11,16 +11,28 @@ potential performance benefit for adopting multi-threaded asynchronous I/O for
 NVMe devices in production-ready user space file systems.
 
 \begin{figure*}
-\begin{subfigure}[t]{0.5\linewidth}
+\centering
+\begin{subfigure}[t]{0.49\linewidth}
   \input{charts/single-file-write-speedup}
   \caption{Single file write speedup}\label{fig:single-file-speedup}
-\end{subfigure}
-\begin{subfigure}[t]{0.5\linewidth}
+\end{subfigure}\hfill%
+\begin{subfigure}[t]{0.49\linewidth}
   \input{charts/single-file-write-thpt}
   \caption{Single file write effective throughput}\label{fig:single-file-thpt}
 \end{subfigure}
+\par\bigskip
+\begin{subfigure}[t]{0.49\linewidth}
+  \input{charts/multi-file-write-speedup}
+  \caption{Multi-file write speedup}\label{fig:multi-file-speedup}
+\end{subfigure}%
+\begin{subfigure}[t]{0.49\linewidth}
+  \input{charts/multi-file-write-thpt}
+  \caption{Multi-file write effective throughput for 100 data blocks}
+  \label{fig:multi-file-thpt}
+\end{subfigure}
 \caption{The speedup and effective write throughput when appending a varying
-number of data blocks to a single file.}
+number of data blocks to a single file and when appending a fixed number of
+blocks to a varying number of files.}
 \end{figure*}
 
 \subsection{Experimental Methodology}
@@ -76,3 +88,23 @@ likely due to two reasons:
 \end{enumerate*}
 Overall this experiment shows that our asynchronous write path can offer up to
 a $1.5\times$ performance improvement for single file writes.
+
+\subsubsection{Multi-file Writes}
+In this experiment, we measure the time taken to append a fixed number of data
+blocks to a varying number of files within a single transaction. For each trial
+we open all the files (i.e. load the corresponding inodes), perform the writes
+to each file, and then flush all of the dirty metadata blocks at once in bulk
+(block freemap, checksum blocks, and inode blocks).
+Figure~\ref{fig:multi-file-thpt} shows the effective write throughput when
+appending 100 data blocks to a varying number of files.
+Figure~\ref{fig:multi-file-speedup} shows the write speedup for two different
+file sizes: 100 data blocks and 10 data blocks.
+
+The speedup improves as the number of files being appended increases. Overall
+as more files are written, more data blocks are being queued up to be written
+to the underlying device. Additionally, the cost of performing metadata
+operations is also amortized over all the file data blocks. Therefore the
+reasoning for the improved speedup as the number of files increases is similar
+to that of single file writes with increased data blocks. Overall this
+experiment shows that our asynchronous write path can offer up to a $3\times$
+performance improvement for multi-file writes.

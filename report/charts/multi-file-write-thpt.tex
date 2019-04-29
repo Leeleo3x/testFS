@@ -1,13 +1,13 @@
-% Single File Async Writes - Throughput
+% Multi-File Async Writes - Throughput
 \begin{tikzpicture}[baseline]
 \begin{axis}[
-  xlabel=Number of Blocks,
+  xlabel=Number of Files,
   ylabel=Throughput (KiB/s),
   height=4.5cm,
   width=8.5cm,
   every axis plot/.append style={ultra thick},
   legend pos=south east,
-  legend style={font=\footnotesize},
+  legend style={font=\footnotesize,at={(0.97,0.4)},anchor=east},
 ]
 \addlegendimage{darkestblue, mark=none}
 \addlegendimage{lightblue, mark=none}
@@ -17,20 +17,20 @@
   mark=none,
   mark options={fill=darkestblue},
 ] table [
-  x=num_blocks,
-  y expr={(0.5 * \thisrow{num_blocks}) / (\thisrow{async_avg_us} / 1000000)},
+  x=num_files,
+  y expr={(0.5 * 100 * \thisrow{num_files}) / (\thisrow{async_avg_us} / 1000000)},
   col sep=comma,
-] {data/e2e_write_num_blocks.csv};
+] {data/e2e_write_num_files_100bl.csv};
 %
 \addplot [
   lightblue,
   mark=none,
   mark options={fill=lightblue},
 ] table [
-  x=num_blocks,
-  y expr={(0.5 * \thisrow{num_blocks}) / (\thisrow{sync_avg_us} / 1000000)},
+  x=num_files,
+  y expr={(0.5 * 100 * \thisrow{num_files}) / (\thisrow{sync_avg_us} / 1000000)},
   col sep=comma,
-] {data/e2e_write_num_blocks.csv};
+] {data/e2e_write_num_files_100bl.csv};
 % Legend
 \addlegendentry{Async. I/O}
 \addlegendentry{Sync. I/O}
