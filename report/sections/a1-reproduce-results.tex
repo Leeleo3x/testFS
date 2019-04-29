@@ -1,13 +1,34 @@
 \section{Reproducing our Results}
 Our code is available on GitHub at \url{https://github.com/Leeleo3x/testFS}.
-To build and run our code, you need to first install {\tt cmake}. Then
-follow the steps in the code repository readme to build and run testFS.
+To build and run the code, you need to first install {\tt cmake}. Then
+follow the steps in the code repository readme to compile and run testFS.
 
-To run our experiments, type {\tt run-experiments} on the testFS REPL. This
-command will run all the experiments we used to create the charts in this
-project report. The experiments will take roughly 30 minutes to complete. The
-raw data will be saved in {\tt .csv} files in the same directory as where the
-testFS binary is stored.
+To run our experiments, run the {\tt run-experiments} command on the testFS
+command prompt. This command will run all the experiments we used to create the
+charts in this project report. The experiments will take roughly 30 minutes to
+complete. The raw data will be saved in {\tt .csv} files in the same directory
+as where the testFS binary is stored.
 
 Individual benchmarks can be executed with the {\tt bench} command on the
-testFS REPL.
+testFS command prompt. The {\tt bench} command is invoked with a benchmark name
+and several options that are specific to the benchmark (e.g. {\tt bench
+  raw\_read 1 1}). Table~\ref{tbl:bench-commands} lists the available
+benchmarks and their options.
+
+\begin{table}
+  \centering
+  \caption{The available benchmarks and their options}
+  \label{tbl:bench-commands}
+  \begin{tabular}{c|c}
+    {\bf Benchmark} & {\bf Options} \\ \hline
+    {\tt raw\_read} & {\tt <trials> <blocks>} \\ \hline
+    {\tt raw\_write} & {\tt <trials> <blocks>} \\ \hline
+    {\tt e2e\_write} & {\tt <file> <trials> <\# files>}
+  \end{tabular}
+\end{table}
+
+The {\tt raw\_read} and {\tt raw\_write} benchmarks perform raw sequential
+reads/writes of a specified number of blocks. The {\tt e2e\_write} benchmark
+writes data to a specified number of files. The data written to the file is
+read from a file in the host operating system's file system. All three
+benchmarks can be repeated for a specified number of trials.
