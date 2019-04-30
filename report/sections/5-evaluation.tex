@@ -1,12 +1,12 @@
 \section{Evaluation}
 Since testFS is a toy file system, we did not run any end-to-end file system
 benchmarks such as {\tt fio}, or Filebench~\cite{filebench-tarasov16}. As a
-result, we do not make claims as to the performance improvement associated with
-real workloads. Instead, the goal of our evaluation is to quantify the
-potential performance benefit for adopting multi-threaded asynchronous I/O for
-NVMe devices in production-ready user space file systems.
+result, we do not make claims about performance improvements for real
+workloads. Instead, the goal of our evaluation was to quantify the potential
+performance benefit of adopting multi-threaded asynchronous I/O for NVMe
+devices in production-ready user space file systems.
 
-Overall, our experiments show that our asynchronous I/O write path performs up
+Overall our experiments show that our asynchronous I/O write path performs up
 to $1.5\times$ better on single file writes and up to $3\times$ better on
 multi-file writes compared to a synchronous I/O write path.
 
@@ -28,35 +28,36 @@ futures (described in Section~\ref{sec:futures}) as the thread synchronization
 mechanism in all of our experiments.
 
 \paragraph{Baseline.}
-In our evaluations we want to quantify the performance improvement associated
-with using asynchronous I/O requests with multiple threads on the testFS file
-write path over synchronous I/O requests. Therefore our baseline is a
-synchronous version of the testFS write path (each asynchronous I/O function
-call is replaced with its synchronous counterpart). For a fair comparison, both
-the synchronous and asynchronous write paths use our improved write path
-implementation that we describe in Section~\ref{sec:writepath}.
+We wanted to quantify the performance improvement associated with using
+multi-threaded asynchronous I/O on the testFS file write path. Therefore
+our baseline was a synchronous version of the testFS write path (each
+asynchronous I/O function call was replaced with its synchronous counterpart).
+For a fair comparison, both the synchronous and asynchronous write paths used
+our improved write path implementation (as described in
+Section~\ref{sec:writepath}).
 
 \begin{figure}
   \centering
   \input{charts/raw-seq-speedup}
-  \caption{The speedup of asynchronous I/O reads and writes for a varying
-    number of blocks.}\label{fig:raw-speedup}
+  \caption{The speedup of asynchronous I/O versus synchronous I/O for
+    sequential reads and writes of a varying number of blocks.}
+  \label{fig:raw-speedup}
 \end{figure}
 
 \subsection{Raw Sequential Reads and Writes}
-To quantify the performance improvement of purely asynchronous I/O versus
-synchronous I/O, we used a microbenchmark that reads/writes a sequence of
-blocks one by one. For each trial we read (or write) one block in a loop for a
-number of iterations. In the synchronous case each read/write blocks until the
-request completes. In the asynchronous case we issue all read/write requests
-and then wait for them to complete.
+To quantify the raw performance of asynchronous I/O versus synchronous I/O, we
+ran two microbenchmarks that read and write a sequence of blocks one by one.
+In each trial the benchmark reads (or writes) one block in a loop for a
+pre-determined number of iterations. In the synchronous case each read/write
+blocks until the request completes. In the asynchronous case we issue all
+read/write requests and then wait for them to complete together in bulk.
 
-Figure~\ref{fig:raw-speedup} shows our results. As the number of blocks
-read/written increases, the speedup increases. Additionally the read speedup
-(up to $7\times$) is more significant than the write speedup (up to $2\times$).
-This is likely because reads are faster than writes in flash based SSDs, which
-would mean that reads benefit more from asynchronous I/O requests since more
-requests can be queued up at once.
+Figure~\ref{fig:raw-speedup} shows our results. As the number of blocks read or
+written increases, the speedup increases. Additionally the read speedup (up to
+$7\times$) is greater than the write speedup (up to $2\times$). Reads are
+faster than writes in flash-based SSDs, which could mean that they benefit more
+from asynchronous I/O; this would explain the discrepancy in speedups between
+raw reads and writes.
 
 \begin{figure*}
 \centering
@@ -84,49 +85,48 @@ blocks to a varying number of files.}
 \end{figure*}
 
 \subsection{File Writes}
-In these experiments, we quantify the performance improvements associated with
-multi-threaded asynchronous I/O when varying the number of blocks written to a
-file and the number of files written in a single transaction. We report the
-effective write throughput, which is calculated by dividing the total size of
-the data blocks being written by the time taken to complete the experiment.
-Note that this metric excludes I/O requests made to read and write file system
-metadata, which is why it is the ``effective'' write throughput.
+To quantify the performance improvements associated with multi-threaded
+asynchronous I/O we ran experiments that varied the number of blocks written to
+a file and the number of files written in a single transaction. In these
+experiments we report the speedup and the effective write throughput, which is
+calculated by dividing the total size of the data blocks being written by the
+time taken to complete the experiment. Note that the effective write throughput
+excludes I/O requests made to read and write file system metadata.
 
 \subsubsection{Single File Writes}
-In this experiment, we measure the time taken to append a varying number of
-data blocks to a single file in testFS. Figure~\ref{fig:single-file-thpt}
-compares the effective write throughput when asynchronous I/O is used and when
-synchronous I/O is used. Figure~\ref{fig:single-file-speedup} summarizes this
-comparison by illustrating the speedup as the number of blocks being appended
-increases.
+In this experiment we measured the time taken to append a varying number of
+data blocks to a single file in testFS. Figure~\ref{fig:single-file-thpt} shows
+the effective write throughput when multi-threaded asynchronous I/O is used and
+when synchronous I/O is used. Figure~\ref{fig:single-file-speedup} summarizes
+this comparison by illustrating the speedup as the number of blocks being
+appended increases.
 
-The speedup improves as the number of blocks being appended increases. This is
-likely due to two reasons:
+The speedup improves as the number of blocks being appended increases. We think
+this is attributed to two reasons:
 \begin{enumerate*}[label={(\roman*)}]
-  \item a larger number of blocks allows the device to operate closer to its
-    theoretical peak throughput, and
+  \item a larger number of blocks being queued allows the device to operate
+    closer to its peak throughput, and
   \item the cost of reading and writing the file system metadata is amortized
     across a larger number of blocks.
 \end{enumerate*}
-Overall this experiment shows that our asynchronous write path can offer up to
-a $1.5\times$ performance improvement for single file writes.
+Overall this experiment shows that our multi-threaded asynchronous write path
+can offer up to a $1.5\times$ performance improvement over synchronous I/O for
+single file writes.
 
 \subsubsection{Multi-file Writes}
-In this experiment, we measure the time taken to append a fixed number of data
-blocks to a varying number of files within a single transaction. For each trial
-we open all the files (i.e. load the corresponding inodes), perform the writes
-to each file, and then flush all of the dirty metadata blocks at once in bulk
+In this experiment we measured the time taken to append a fixed number of data
+blocks to a varying number of files within a single transaction. In each trial
+we opened all the files (i.e. loaded the corresponding inodes), made the writes
+to each file, and then flushed all of the dirty metadata blocks at once in bulk
 (block freemap, checksum blocks, and inode blocks).
 Figure~\ref{fig:multi-file-thpt} shows the effective write throughput when
-appending 100 data blocks to a varying number of files.
+100 data blocks were appended to a varying number of files.
 Figure~\ref{fig:multi-file-speedup} shows the write speedup for two different
 file sizes: 100 data blocks and 10 data blocks.
 
-The speedup improves as the number of files being appended increases. Overall
+The speedup improves as the number of files being written to increases. Overall
 as more files are written, more data blocks are being queued up to be written
-to the underlying device. Additionally, the cost of performing metadata
-operations is also amortized over all the file data blocks. Therefore the
-reasoning for the improved speedup as the number of files increases is similar
-to that of single file writes with increased data blocks. Overall this
-experiment shows that our asynchronous write path can offer up to a $3\times$
-performance improvement for multi-file writes.
+to the underlying device. Therefore the reasoning for the trends is similar to
+that of single file writes with increased data blocks. Overall this experiment
+shows that our asynchronous write path can offer up to a $3\times$ performance
+improvement for multi-file writes over synchronous I/O.
