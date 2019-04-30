@@ -1,2 +1,40 @@
 \section{Code Walkthrough}\label{apx:codewalkthrough}
-TODO
+Table~\ref{tbl:codemap} presents a mapping of the high level functionality
+changes to the relevant source code files. When applicable, we added new header
+files for the new shared functions that we defined. Generally we added comments
+above each of these new function prototypes to describe their functionality.
+
+\begin{table}[h!]
+  \centering
+  \caption{A mapping of our high level functionality changes to the relevant
+    source code files.}\label{tbl:codemap}
+  \begin{tabular}{p{2cm}|p{4cm}}
+    {\bf Functionality} & {\bf Relevant Files} \\ \hline
+    Device Set Up & {\tt device.c, device.h} \\ \hline
+    Write Path & {\tt inode\_alternate\_*.c, inode\_alternate.h} \\ \hline
+    Thread Synchronization & {\tt async.c, async.h} \\ \hline
+    Benchmarks & {\tt bench*.c, bench.h}
+  \end{tabular}
+\end{table}
+
+\paragraph{Device Set Up.}
+The device set up code is contained within {\tt device.c}. The file contains
+the code needed to initialize SPDK and have it bind to a block device (in our
+case, an NVMe SSD).
+
+\paragraph{Write Path Reimplementation.}
+As we describe in Section~\ref{sec:writepath}, we reimplemented the testFS
+write path to make it more amenable to asynchronous I/O. Our implementation can
+be found in the source files prefixed with {\tt inode\_alternate\_}. The entry
+point to our implementation is {\tt testfs\_write\_data\_alternate\_async()}.
+We implemented both synchronous and asynchronous versions of the write path so
+that we could provide a fair comparison between both approaches.
+
+\paragraph{Thread Synchronization.}
+Our implementation of primitive futures, as we describe in
+Section~\ref{sec:futures}, can be found in {\tt async.c} and {\tt async.h}.
+
+\paragraph{Benchmarks.}
+The benchmarks and experiments that we used to evaluate our design can be found
+in the source files prefixed with {\tt bench}. We wrote the benchmarks so that
+they could be invoked interactively from the testFS command prompt.
