@@ -22,7 +22,7 @@ contains monotonically increasing counter variables---one per thread.
 Listing~\ref{lst:future} shows the definition of our future.
 
 \begin{lstlisting}[language=C,
-  caption={Our primitive future},
+  caption={The definition of our future.},
   captionpos=b,
   label={lst:future}]
 struct future {
@@ -33,43 +33,44 @@ struct future {
 
 To use a future, the caller of an asynchronous function will create a future
 and then pass a pointer to it to the asynchronous function. The key idea is
-that the {\tt expected\_counts} variables keep track of the number of issued
-asynchronous requests and that the {\tt counts} variables keep track of the
-number of completed asynchronous requests. The {\tt counts} variable is
-incremented when an asynchronous request completes. When the two counters are
-equal, we know that the requests have completed. A thread can wait for a
-future's asynchronous operations to complete by spinning on the
-counters---essentially waiting for {\tt expected\_counts[i] == counts[i]} for
-all {\tt i}. We defined a helper function called {\tt spin\_wait()} to do this;
-it takes a pointer to a future and spins on the counters.
+that {\tt expected\_counts} keeps track of the number of issued asynchronous
+requests and that {\tt counts} keeps track of the number of completed
+asynchronous requests. The {\tt counts[i]} variable is incremented when an
+asynchronous request completes on thread {\tt i}. A thread waits for a future's
+asynchronous operations to complete by spinning on the counters---essentially
+waiting for {\tt expected\_counts[i] == counts[i]} for all {\tt i}. We defined
+a helper function called {\tt spin\_wait()} to do this; it takes a pointer to a
+future and spins on the counters.
 
 \paragraph{Example.}
 Suppose the control thread wants to call an asynchronous function that should
-be handled by worker thread {\tt i}. The control thread will create a future
-and then increment {\tt expected\_counts[i]}. It then passes a pointer to the
-future to the asynchronous function. When the asynchronous operation completes
-on thread {\tt i}, the worker thread will increment {\tt counts[i]}.
+be handled by thread {\tt i}. The control thread will create a future and then
+increment {\tt expected\_counts[i]}. It then passes a pointer to the future to
+the asynchronous function. When the asynchronous operation completes on thread
+{\tt i}, thread {\tt i} will increment {\tt counts[i]}.
 
 \paragraph{Avoiding Locks by Design.}
-Despite the presence of shared data, locks are not needed to use our future.
-The {\tt counts} variables do not need to be guarded by locks because there is
+Despite the presence of shared data, locks are not needed to use the future.
+The {\tt counts} variable does not need to be guarded by locks because there is
 one counter per thread, meaning only one thread writes to a given counter. The
-{\tt expected\_counts} variables are not shared; they are only used by the
-asynchronous function's calling thread. The {\tt counts} variables are marked
+{\tt expected\_counts} variable is not shared; it is only used by the
+asynchronous function's calling thread. The {\tt counts} variable is marked
 as {\tt volatile} to ensure the compiler does not generate code that caches the
-variables in a register.
+counters in a register.
 
 \subsubsection{Semaphores}
-Another approach for thread synchronization is to use POSIX
-semaphores---creating one per thread. The value of the semaphore represents the
-number of completed asynchronous requests on a given thread. Each time an
-asynchronous request completes on thread {\tt i}, the thread will post to
-semaphore {\tt i}. To wait for asynchronous requests to complete, the control
-thread can wait on the semaphores of the relevant worker threads.
+Another approach for thread synchronization is to use semaphores---creating one
+per thread. The value of the semaphore represents the number of completed
+asynchronous requests on a given thread. Each time an asynchronous request
+completes on thread {\tt i}, the thread will post to semaphore {\tt i}. To wait
+for asynchronous requests to complete, the control thread waits on the
+semaphores of the relevant worker threads.
 
 \paragraph{Avoiding Lock Contention.} We create one semaphore per thread to
-avoid lock contention. This ensures only one thread is posting to a given
-semaphore and only one thread is waiting on a given semaphore.
+avoid lock contention when modifying the semaphore's internal state. This
+ensures only one thread (the metadata or data thread) is posting to a given
+semaphore and only one thread (the control thread) is waiting on a given
+semaphore.
 
 \subsection{Asynchronous I/O}
 \paragraph{Interface.}
@@ -85,20 +86,20 @@ requests to distinct threads.
 \paragraph{Implementation.}
 When these asynchronous read/write functions are called, the future's {\tt
 expected\_count} for the handling thread is first incremented and then the
-request is sent to the handling thread using SPDK's message passing library.
-Upon receiving this message, the handling thread then submits the I/O request
+request is sent to the handling thread using SPDK's message passing framework.
+Upon receiving the request, the handling thread then submits the I/O request
 to the underlying NVMe device using its dedicated I/O channel. When the request
 completes, a callback is executed on the handling thread. The callback function
 increments the future's {\tt count} for the handling thread to ``notify'' the
 calling thread that the request has completed. Since the I/O request is
 asynchronous, the calling thread is free to do other work while the I/O request
-is being handled. When the calling thread needs to wait for the I/O request to
+is being handled. If the calling thread needs to wait for the I/O request to
 be completed it can call {\tt spin\_wait()} on the future.
 
-\paragraph{Synchronous Comparison.}
+\paragraph{Synchronous Baseline.}
 To be able to compare asynchronous I/O requests and synchronous I/O
 requests, we modified {\tt read\_blocks()} and {\tt write\_blocks()} so that
-they can work with SPDK as well. These functions were implemented by calling
+they can work with SPDK as well. These functions are implemented by calling
 their asynchronous counterparts and then immediately waiting on the future.
 This ensures that the I/O request completes before the function returns.
 
@@ -111,16 +112,17 @@ and writes of the same physical blocks. In the existing implementation:
   \item an entire bitmap block is flushed to the underlying device each time a
     single block is allocated;
   \item entire checksum blocks are flushed for each modified checksum;
-  \item an entire inode block is flushed for each modified inode;
-  \item inode indirect blocks are read, modified, and written to the underlying
+  \item an entire inode block is flushed for each modified inode; and
+  \item inode indirect blocks are read, modified, and flushed to the underlying
     device for every block appended to the file.
 \end{enumerate*}
-Since a write transaction in testFS may consist of writing multiple blocks to
-more than one file, issuing entire metadata block writes for each modified data
-block results in unnecessary write amplification because a single metadata
-block may contain metadata for multiple data blocks. We discovered that these
-inefficiencies led to poor performance even in our asynchronous implementation.
-This led us to reimplement the file write path in testFS.
+
+A write transaction in testFS may consist of writing multiple blocks to more
+than one file and a single metadata block may contain metadata for multiple
+data blocks. Therefore issuing entire metadata block writes for each modified
+data block results in unnecessary write amplification.  We discovered that
+these inefficiencies led to poor performance even in our asynchronous
+implementation. This led us to reimplement the file write path in testFS.
 
 \paragraph{Bulk Metadata Flushes.}
 We made the observation that metadata such as block checksums, the data
@@ -128,14 +130,14 @@ block freemap, and ``opened'' inodes are cached in-memory. As a result, it is
 unnecessary to flush modified metadata blocks to the underlying device each
 time a new data block is appended to a file. We modified the file write
 implementation to instead keep track of the dirty cached metadata blocks and
-then flush them all together in bulk at the end of a transaction. This approach
-ensured that a metadata block is written to the underlying device at most once
-per transaction.
+then to flush them all together in bulk at the end of a transaction. This
+approach ensures that a metadata block is written to the underlying device at
+most once per transaction.
 
 \paragraph{In-Memory Indirect Blocks.}
-We reduced the number of extra reads and writes of an inode's indirect block by
+We reduced the number of extra reads and writes of an inode indirect block by
 keeping a copy of the indirect block in memory. The indirect block is loaded
-into memory lazily (i.e. when it is first requested). This allows subsequent
-reads and writes to the indirect block to be made to the copy stored in-memory.
-The modified indirect block is flushed to the underlying device together with
-the in-memory copy of the inode.
+into memory lazily (i.e. when it is first requested). This approach allows
+subsequent reads and writes of the indirect block to occur in-memory. The
+modified indirect block is flushed to the underlying device whenever the
+in-memory copy of the inode is flushed.
