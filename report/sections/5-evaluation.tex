@@ -1,10 +1,11 @@
 \section{Evaluation}
 Since testFS is a toy file system, we did not run any end-to-end file system
-benchmarks such as {\tt fio}, or Filebench~\cite{filebench-tarasov16}. As a
-result, we do not make claims about performance improvements for real
-workloads. Instead, the goal of our evaluation was to quantify the potential
-performance benefit of adopting multi-threaded asynchronous I/O for NVMe
-devices in production-ready user space file systems.
+benchmarks such as {\tt fio}~\cite{fio}, or
+Filebench~\cite{filebench-tarasov16}. As a result, we do not make claims about
+performance improvements for real workloads. Instead, the goal of our
+evaluation was to quantify the potential performance benefit of adopting
+multi-threaded asynchronous I/O for NVMe devices in production-ready user space
+file systems.
 
 Overall our experiments show that our asynchronous I/O write path performs up
 to $1.5\times$ better on single file writes and up to $3\times$ better on

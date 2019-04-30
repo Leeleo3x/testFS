@@ -52,15 +52,15 @@ request completes.
 
 \subsection{TestFS}
 
-TestFS\cite{testfs} is a user space file system which is similar to {\tt ext3},
-a journaled file system that is commonly used by the Linux kernel. TestFS has
-three levels of indirection, which are illustrated in Figure~\ref{fig:testfs}.
-A super block points to metadata and an inode block of the root directory.  The
-metadata stores the block freemap as well as the checksum of the data blocks.
-Inode blocks point to data blocks where the actual data is stored. In testFS,
-both directory data and indirect inode data are stored in data blocks. The
-space assigned to inode blocks and data blocks is pre-allocated and fixed
-during the life cycle of testFS.
+TestFS\cite{testfs} is a user space file system which is similar to {\tt
+  ext3}~\cite{ext3}, a journaled file system that is commonly used by the Linux
+kernel. TestFS has three levels of indirection, which are illustrated in
+Figure~\ref{fig:testfs}. A super block points to metadata and an inode block of
+the root directory. The metadata stores the block freemap as well as the
+checksum of the data blocks. Inode blocks point to data blocks where the actual
+data is stored. In testFS, both directory data and indirect inode data are
+stored in data blocks. The space assigned to inode blocks and data blocks is
+pre-allocated and fixed during the life cycle of testFS.
 
 Note that our file system is based on testFS because testFS is well-maintained,
 user level, and well-documented. Extending testFS allows us to build a proof of
@@ -69,7 +69,7 @@ applied to most other file systems as well.
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[height=3cm]{testfs}
+  \includegraphics[height=4cm]{testfs}
   \caption{The layout of blocks with different types in testFS.}
   \label{fig:testfs}
 \end{figure}
