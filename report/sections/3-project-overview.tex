@@ -21,50 +21,57 @@ testFS. More concretely, in our project we aim to:
 \subsection{Key Challenges}
 
 \paragraph{Challenge 1: Callbacks and Synchronous Code.}
-Reads and writes to block devices with SPDK are asynchronous operations. SPDK
+With SPDK, reads and writes to block devices are asynchronous operations. SPDK
 uses callback functions as the mechanism for scheduling code that should run
 after an asynchronous operation has completed. However testFS is designed with
 synchronous operations in mind. The file system code is written with the
-assumption that, after a thread makes an I/O request, the thread will wait
-until the request completes before executing any additional code. Ultimately,
-this combination of synchronous code and a library that uses asynchronous
-callbacks makes it difficult to integrate testFS with SPDK without making
-invasive changes throughout the testFS codebase.
+assumption that, after a thread makes an I/O request, the thread will block
+until the request completes before executing any additional code. This
+combination of synchronous code and a library that uses asynchronous callbacks
+makes it difficult to integrate testFS with SPDK without making invasive
+changes throughout the testFS codebase.
 
 \paragraph{Challenge 2: Lock Contention.}
 Our project is a proof of concept for next generation file systems that may use
 hundreds of threads. To ensure the scalability of our ideas, we need to avoid
-designs that have multiple threads acquiring the same locks to prevent
-contention among the threads.
+designs that have multiple threads acquiring the same locks as this could
+lead to contention among the threads.
 
-\subsection{Our Approach: Key Ideas}
-The key idea behind our approach is to leverage a multi-threaded architecture
-where each thread has a specific purpose. Specifically, we use three threads:
+\subsection{Our Design: Key Ideas}
+The key idea behind our design is to use a multi-threaded architecture where
+each thread has a specific purpose. Specifically, we use 3 threads:
 \begin{enumerate*}[label={(\roman*)}]
-  \item a control thread responsible for executing the file system logic and
-    for interacting with the user through the testFS REPL,
-  \item a metadata thread responsible for submitting I/O requests for blocks
-    that are used for file system metadata, and
-  \item a data thread responsible for submitting I/O requests for data blocks.
+  \item a {\it control thread} responsible for executing the file system logic
+    and for interacting with the user through the testFS command prompt,
+  \item a {\it metadata thread} responsible for submitting I/O requests for
+    blocks that are attributed to file system metadata, and
+  \item a {\it data thread} responsible for submitting I/O requests for data
+    blocks.
 \end{enumerate*}
-This architecture allows us to achieve asynchronous writes with multiple
-threads without incurring a significant engineering overhead.
+
+To handle a write request, the control thread will execute the file system
+logic as usual (e.g. computing logical block numbers). When the control thread
+needs to read or write to the underlying device, it will send a request to the
+appropriate thread (metadata or data) using SPDK's lockless message passing
+framework. The metadata/data threads then submit the request to the device. The
+control thread can wait for these requests to complete in bulk or individually
+as needed for correctness.
 
 \paragraph{Reconciling Callbacks and Synchronous Code.}
 A multi-threaded architecture allows us to use existing thread synchronization
 techniques as a way to be able to wait for asynchronous requests to complete.
 The threads responsible for issuing I/O requests are distinct from the control
 thread, which means callbacks only need to be registered on the lowest level
-code responsible for issuing read/write requests with SPDK. When asynchronous
-requests complete, the callback will execute on the I/O request thread and can
-then ``signal'' the control thread as needed. We discuss two techniques for
-thread synchronization in Section~\ref{sec:threadsync}. Ultimately this
-approach allows us to avoid adding callback functions throughout the entire
-testFS codebase and therefore allows us to avoid making invasive changes to the
-file system.
+code responsible for issuing read/write requests with SPDK. When an
+asynchronous request completes, its callback will execute on the I/O request
+thread and can then ``signal'' the control thread as needed. We discuss two
+techniques for thread synchronization in Section~\ref{sec:threadsync}.
+Ultimately this approach allows us to avoid adding callback functions
+throughout the entire testFS codebase and therefore helps us avoid having to
+make invasive changes to the file system.
 
 \paragraph{Avoiding Lock Contention.}
-To avoid lock contention, we use thread synchronization techniques that either
+To avoid lock contention we use thread synchronization techniques that either
 \begin{enumerate*}[label={(\roman*)}]
   \item do not require locks, or
   \item have a lock per thread, to prevent contention among I/O threads.
