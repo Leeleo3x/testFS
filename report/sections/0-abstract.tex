@@ -9,8 +9,8 @@ devices?
 
 In this work we take a first step towards answering this question by extending
 an existing user space file system to support NVMe storage devices by using
-SPDK---a user space, polled, lockless device driver. We additionally modify the
-file system's write path to support multi-threaded asynchronous I/O. The key
+SPDK---a user space, polled, lockless device driver. We additionally modify 
+the write path of the file system to support multi-threaded asynchronous I/O. The key
 idea behind our design is to use a multi-threaded architecture to be able to
 submit asynchronous I/O requests for different types of file system blocks
 (e.g.  metadata versus data) in parallel.
