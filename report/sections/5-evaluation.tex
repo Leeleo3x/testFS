@@ -3,7 +3,7 @@ Since testFS is a toy file system, we did not run any end-to-end file system
 benchmarks such as {\tt fio}~\cite{fio}, or
 Filebench~\cite{filebench-tarasov16}. As a result, we do not make claims about
 performance improvements for real workloads. Instead, the goal of our
-evaluation was to quantify the potential performance benefit of adopting
+evaluation was to quantify the {\it potential} performance benefit of adopting
 multi-threaded asynchronous I/O for NVMe devices in production-ready user space
 file systems.
 
@@ -86,13 +86,17 @@ blocks to a varying number of files.}
 \end{figure*}
 
 \subsection{File Writes}
-To quantify the performance improvements associated with multi-threaded
-asynchronous I/O we ran experiments that varied the number of blocks written to
-a file and the number of files written in a single transaction. In these
-experiments we report the speedup and the effective write throughput, which is
-calculated by dividing the total size of the data blocks being written by the
-time taken to complete the experiment. Note that the effective write throughput
-excludes I/O requests made to read and write file system metadata.
+To quantify the performance improvements associated with a multi-threaded
+asynchronous I/O write path, we ran experiments that varied the number of
+blocks written to a file and the number of files written in a single
+transaction. We report the overall speedup and the effective write throughput.
+
+The effective write throughput is calculated by dividing the total size of the
+data blocks being written by the time taken to complete the experiment. Note
+that the effective write throughput excludes the size of the I/O requests made
+to read and write file system metadata, but includes the time taken to execute
+the requests. In other words, the metric is meant to include the overhead of
+using the file system.
 
 \subsubsection{Single File Writes}
 In this experiment we measured the time taken to append a varying number of
