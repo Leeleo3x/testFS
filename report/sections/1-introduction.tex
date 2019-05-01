@@ -24,8 +24,8 @@ an existing user space file system to support NVMe storage devices. We do this
 with the goal of {\it quantifying} the potential performance benefit of
 NVMe-designed file systems. Specifically, as a proof of concept, we integrate
 testFS~\cite{testfs} (a toy user space file system) with SPDK~\cite{spdk} (a
-user space lockless driver for NVMe devices) and we modify the file system's
-write path to support multi-threaded asynchronous I/O.
+user space lockless driver for NVMe devices) and we modify the write path of
+the file system to support multi-threaded asynchronous I/O.
 
 The key idea in our design is to use a multi-threaded architecture to allow
 different types of I/O requests to be submitted to and queued on the storage
@@ -44,7 +44,7 @@ In summary, our project makes the following contributions:
   \item We propose a method to support multi-threaded asynchronous I/O on an
     NVMe SSD that can be implemented alongside existing synchronous code.
   \item We implement a proof of concept of our design by modifying the testFS
-    write path and integrating it with with SPDK.
+    write path and integrating it with SPDK.
   \item We benchmark our implementation and show that our design offers up to a
     $1.5\times$ improvement for single file writes and up to a $3\times$
     improvement for multi-file single transaction writes when compared to

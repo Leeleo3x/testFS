@@ -69,9 +69,8 @@ semaphores of the relevant worker threads.
 
 \paragraph{Avoiding Lock Contention.} We create one semaphore per thread to
 avoid lock contention when modifying the semaphore's internal state. This
-ensures only one thread (the metadata or data thread) is posting to a given
-semaphore and only one thread (the control thread) is waiting on a given
-semaphore.
+ensures only one thread (the metadata or data thread) posts to a given
+semaphore and only one thread (the control thread) waits on a given semaphore.
 
 \subsection{Asynchronous I/O}
 \paragraph{Interface.}
